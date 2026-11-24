@@ -15,22 +15,32 @@ type ReviewItem = {
   trust: string;
 };
 
+type Stats = {
+  active_memories: number;
+  experiences: number;
+  pending_review: number;
+  proposed: number;
+  contested: number;
+  doctor_ok: boolean;
+  schema_version?: string;
+};
+
 export function OverviewPage() {
   const intl = useIntl();
   const nav = useNavigate();
   const [pending, setPending] = useState<ReviewItem[]>([]);
-  const [doctorOk, setDoctorOk] = useState<boolean | null>(null);
+  const [stats, setStats] = useState<Stats | null>(null);
   const [err, setErr] = useState("");
 
   useEffect(() => {
     (async () => {
       try {
-        const [rows, doc] = await Promise.all([
+        const [rows, st] = await Promise.all([
           api<ReviewItem[]>("/api/v1/review/list", { trusts: ["proposed", "contested"], limit: 8 }),
-          apiGet<Record<string, unknown>>("/api/v1/doctor"),
+          apiGet<Stats>("/api/v1/stats"),
         ]);
         setPending(rows || []);
-        setDoctorOk(doc.search_doc_ok !== false);
+        setStats(st);
       } catch (ex) {
         const code = ex instanceof ApiRequestError ? ex.code : "ERR_INTERNAL";
         setErr(intl.formatMessage({ id: `error.${code}`, defaultMessage: intl.formatMessage({ id: "error.generic" }) }));
@@ -38,8 +48,7 @@ export function OverviewPage() {
     })();
   }, [intl]);
 
-  const proposed = pending.filter((r) => r.trust === "proposed").length;
-  const contested = pending.filter((r) => r.trust === "contested").length;
+  const unknown = intl.formatMessage({ id: "overview.stat.unknown" });
 
   return (
     <>
@@ -56,22 +65,22 @@ export function OverviewPage() {
         items={[
           {
             label: intl.formatMessage({ id: "overview.stat.memories" }),
-            value: intl.formatMessage({ id: "overview.stat.unknown" }),
+            value: stats == null ? unknown : stats.active_memories,
           },
           {
             label: intl.formatMessage({ id: "overview.stat.experiences" }),
-            value: intl.formatMessage({ id: "overview.stat.unknown" }),
+            value: stats == null ? unknown : stats.experiences,
           },
           {
             label: intl.formatMessage({ id: "overview.stat.pending" }),
-            value: pending.length || proposed + contested,
+            value: stats == null ? unknown : stats.pending_review,
           },
           {
             label: intl.formatMessage({ id: "overview.stat.doctor" }),
             value:
-              doctorOk == null
-                ? intl.formatMessage({ id: "overview.stat.unknown" })
-                : doctorOk
+              stats == null
+                ? unknown
+                : stats.doctor_ok
                   ? intl.formatMessage({ id: "overview.stat.ok" })
                   : intl.formatMessage({ id: "overview.stat.bad" }),
           },

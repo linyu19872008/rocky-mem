@@ -57,6 +57,17 @@ func TestServeClientRoundTrip(t *testing.T) {
 		t.Fatalf("%v %+v", err, ri)
 	}
 
+	stats, err := c.Stats(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stats.ActiveMemories < 1 {
+		t.Fatalf("stats memories: %+v", stats)
+	}
+	if !stats.DoctorOK {
+		t.Fatalf("expected doctor_ok after reindex: %+v", stats)
+	}
+
 	// unauthorized
 	bad := client.New(ts.URL, "wrong")
 	if err := bad.Health(ctx); err == nil {

@@ -31,6 +31,35 @@ func (db *DB) ListExperiencesByTrust(ctx context.Context, trusts []string, limit
 	return scanExperienceRows(rows)
 }
 
+func (db *DB) CountExperiencesByTrust(ctx context.Context, trusts []string) (map[string]int, error) {
+	out := map[string]int{}
+	if len(trusts) == 0 {
+		return out, nil
+	}
+	ph := make([]string, len(trusts))
+	args := make([]any, len(trusts))
+	for i, t := range trusts {
+		ph[i] = "?"
+		args[i] = t
+		out[t] = 0
+	}
+	q := `SELECT trust, COUNT(*) FROM experience WHERE trust IN (` + strings.Join(ph, ",") + `) GROUP BY trust`
+	rows, err := db.q().QueryContext(ctx, q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var trust string
+		var n int
+		if err := rows.Scan(&trust, &n); err != nil {
+			return nil, err
+		}
+		out[trust] = n
+	}
+	return out, rows.Err()
+}
+
 func (db *DB) ListAllActiveMemory(ctx context.Context) ([]store.Memory, error) {
 	rows, err := db.q().QueryContext(ctx, `
 		SELECT id, uid, lineage, scope, scope_ref, mem_key, mem_type, title, body_md, lang,

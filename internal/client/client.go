@@ -45,6 +45,15 @@ func (c *Client) Doctor(ctx context.Context) (store.DoctorReport, error) {
 	return out, err
 }
 
+func (c *Client) Stats(ctx context.Context) (*core.StatsResult, error) {
+	var out core.StatsResult
+	_, err := c.do(ctx, http.MethodGet, "/api/v1/stats", nil, &out)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
 func (c *Client) Context(ctx context.Context, in core.ContextInput) (*core.PackResult, error) {
 	var out core.PackResult
 	if err := c.post(ctx, "/api/v1/context", in, &out); err != nil {

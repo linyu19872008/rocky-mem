@@ -155,6 +155,7 @@ type Store interface {
 	ListExperiencesByIDs(ctx context.Context, ids []int64) ([]Experience, error)
 	ListMemoriesByIDs(ctx context.Context, ids []int64) ([]Memory, error)
 	ListExperiencesByTrust(ctx context.Context, trusts []string, limit int) ([]Experience, error)
+	CountExperiencesByTrust(ctx context.Context, trusts []string) (map[string]int, error)
 	ListAllActiveMemory(ctx context.Context) ([]Memory, error)
 	ListIndexableExperiences(ctx context.Context) ([]Experience, error)
 	FindExperiencesBySymptomKey(ctx context.Context, key string) ([]Experience, error)

@@ -44,7 +44,7 @@ pnpm --dir web dev  # terminal 2 — proxies /api to :7432
 | `/review` | Review queue with KPI + counted filter chips |
 | `/entry` | Entry detail + conflict compare; approve/reject in page header |
 | `/settings` | Preferences / doctor / ops cards |
-| `/overview` | KPI skeleton + recent pending list |
+| `/overview` | Real KPIs via `GET /api/v1/stats` + recent pending list |
 | `/ingest` | Drop-zone placeholder for later two-phase ingest |
 
 ## Locale resolution

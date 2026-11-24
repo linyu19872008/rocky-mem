@@ -17,4 +17,5 @@ type MemAPI interface {
 	Purge(ctx context.Context, in PurgeInput) (*PurgeResult, error)
 	ExportL1(ctx context.Context, format string) (*ExportResult, error)
 	Backup(ctx context.Context, dest string) (*BackupResult, error)
+	Stats(ctx context.Context) (*StatsResult, error)
 }
