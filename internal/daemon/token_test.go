@@ -12,16 +12,24 @@ func TestLoadOrCreateTokenReusesFile(t *testing.T) {
 	if err := os.WriteFile(path, []byte("stable-token\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	tok, err := LoadOrCreateToken(path)
+	tok, created, err := LoadOrCreateToken(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if tok != "stable-token" {
-		t.Fatalf("got %q", tok)
+	if created || tok != "stable-token" {
+		t.Fatalf("got %q created=%v", tok, created)
 	}
-	tok2, err := LoadOrCreateToken(path)
-	if err != nil || tok2 != tok {
-		t.Fatalf("reuse: %q %v", tok2, err)
+	tok2, created2, err := LoadOrCreateToken(path)
+	if err != nil || created2 || tok2 != tok {
+		t.Fatalf("reuse: %q created=%v %v", tok2, created2, err)
+	}
+}
+
+func TestLoadOrCreateTokenMintsWhenMissing(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "rocky-mem.token")
+	tok, created, err := LoadOrCreateToken(path)
+	if err != nil || !created || tok == "" {
+		t.Fatalf("mint: %q created=%v %v", tok, created, err)
 	}
 }
 

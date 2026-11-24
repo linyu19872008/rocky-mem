@@ -49,13 +49,18 @@ func NewToken() (string, error) {
 
 // LoadOrCreateToken reuses a non-empty token file so serve restarts keep the
 // same bearer for long-lived MCP/CLI clients (Cursor keeps stdio mcp alive).
-func LoadOrCreateToken(tokenPath string) (string, error) {
+// created is true only when a new token was minted (missing or empty file).
+func LoadOrCreateToken(tokenPath string) (token string, created bool, err error) {
 	if b, err := os.ReadFile(tokenPath); err == nil {
 		if tok := strings.TrimSpace(string(b)); tok != "" {
-			return tok, nil
+			return tok, false, nil
 		}
 	}
-	return NewToken()
+	tok, err := NewToken()
+	if err != nil {
+		return "", false, err
+	}
+	return tok, true, nil
 }
 
 func WriteDiscovery(p Paths, addr, token string) error {

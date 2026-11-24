@@ -102,6 +102,8 @@ agent 在开始工作前调用一次：
 make build
 ./scripts/seed-demo.sh
 make serve                 # 独占 .local/rocky-mem.db
+# .local/rocky-mem.token 跨重启复用；需要作废时：
+#   ./bin/rockymem --dsn sqlite://$PWD/.local/rocky-mem.db serve --rotate-token
 make verify-tier1
 ```
 

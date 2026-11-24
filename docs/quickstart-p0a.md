@@ -29,12 +29,13 @@ coalesced on upsert (local/… → github.com/…).
 make serve
 # discovery files appear next to the DB:
 #   .local/rocky-mem.addr
-#   .local/rocky-mem.token
+#   .local/rocky-mem.token   # stable across restarts (minted only if missing/empty)
 #   .local/rocky-mem.lock
 ```
 
 MCP and CLI with the same `--dsn` detect a healthy daemon and proxy over HTTP; they
-do **not** open SQLite directly while serve holds the lock.
+do **not** open SQLite directly while serve holds the lock. To invalidate the bearer:
+`rockymem serve --rotate-token` (then reload Cursor MCP).
 
 ## Cursor MCP
 

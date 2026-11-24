@@ -20,9 +20,15 @@ Gate for the first operational slice after adoption (Tier-0).
 3. If serve is down, CLI/MCP open the DB directly and take the lock (exclusive).
 
 Discovery files sit next to the DB: `rocky-mem.lock`, `rocky-mem.addr`, `rocky-mem.token`.
-The bearer in `*.token` is **reused across serve restarts** so long-lived Cursor MCP
-clients do not get `ERR_UNAUTHORIZED` after you restart the daemon. Shutdown only
-clears `*.addr`; delete the token file yourself if you need to rotate.
+
+**Token lifecycle (Solo):** mint only when `*.token` is missing or empty; otherwise
+reuse. Shutdown clears `*.addr` only (keeps the token). Rotate explicitly:
+
+```bash
+rockymem serve --rotate-token   # or: rm .local/rocky-mem.token && make serve
+```
+
+After rotate, reload Cursor MCP (old long-lived clients still hold the previous bearer).
 
 ## Verify
 

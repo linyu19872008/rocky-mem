@@ -11,6 +11,12 @@ migration note.
 
 ## [Unreleased]
 
+### Changed
+
+- **Stable serve bearer:** mint `*.token` only when missing/empty; shutdown keeps
+  the token file. Use `rockymem serve --rotate-token` (or delete the file) to
+  rotate; reload Cursor MCP afterwards. See `docs/tier1.md`.
+
 ### Added
 
 - **Web SPA skeleton:** Vite + React + FormatJS embedded in `serve` (`make web`);

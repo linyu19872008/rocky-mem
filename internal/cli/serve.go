@@ -21,6 +21,7 @@ import (
 func cmdServe() *cobra.Command {
 	var bind string
 	var noWeb bool
+	var rotateToken bool
 	c := &cobra.Command{
 		Use:   "serve",
 		Short: "Run the local daemon (exclusive store owner + /api/v1)",
@@ -45,7 +46,10 @@ func cmdServe() *cobra.Command {
 				return err
 			}
 
-			token, err := daemon.LoadOrCreateToken(paths.Token)
+			if rotateToken {
+				_ = os.Remove(paths.Token)
+			}
+			token, minted, err := daemon.LoadOrCreateToken(paths.Token)
 			if err != nil {
 				return err
 			}
@@ -73,7 +77,11 @@ func cmdServe() *cobra.Command {
 			}()
 
 			baseURL := "http://" + addr
-			fmt.Fprintf(os.Stderr, "rockymem serve listening on %s\n  db: %s\n  token file (MCP/CLI): %s\n", baseURL, path, paths.Token)
+			tokenNote := "reused"
+			if minted {
+				tokenNote = "created"
+			}
+			fmt.Fprintf(os.Stderr, "rockymem serve listening on %s\n  db: %s\n  token file (MCP/CLI): %s (%s)\n", baseURL, path, paths.Token, tokenNote)
 			if !noWeb {
 				fmt.Fprintf(os.Stderr, "  open in browser (cookie auth, no Bearer needed):\n")
 				fmt.Fprintf(os.Stderr, "    %s/\n", baseURL)
@@ -102,5 +110,6 @@ func cmdServe() *cobra.Command {
 	}
 	c.Flags().StringVar(&bind, "bind", daemon.DefaultBind, "loopback listen address")
 	c.Flags().BoolVar(&noWeb, "no-web", false, "disable embedded search/review UI")
+	c.Flags().BoolVar(&rotateToken, "rotate-token", false, "mint a new bearer token (invalidates long-lived MCP/CLI until reload)")
 	return c
 }

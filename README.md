@@ -130,6 +130,8 @@ make build
 ./scripts/seed-demo.sh          # demo prefs + global-scoped experiences
 make serve                      # exclusive writer on .local/rocky-mem.db
 # another terminal / Cursor MCP uses the same DSN and talks HTTP to serve
+# bearer in .local/rocky-mem.token is reused across restarts; rotate with:
+#   ./bin/rockymem --dsn sqlite://$PWD/.local/rocky-mem.db serve --rotate-token
 make verify-tier1
 ```
 
