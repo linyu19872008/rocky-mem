@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>{{.Title}}</title>
+  <style>
+    :root { --ink:#1a1a1a; --muted:#5c5c5c; --line:#d8d2c4; --ok:#0a7a3e; --bad:#a40000; --accent:#0b5fff; }
+    body { margin:0; font:15px/1.45 "IBM Plex Sans", "Segoe UI", sans-serif; background:linear-gradient(160deg,#f6f4ef,#ebe6da); color:var(--ink); min-height:100vh; }
+    header { padding:1.25rem 1.5rem; border-bottom:1px solid var(--line); display:flex; gap:1rem; align-items:baseline; flex-wrap:wrap; }
+    header strong { font-size:1.15rem; }
+    nav a { color:var(--muted); text-decoration:none; margin-right:0.75rem; }
+    nav a:hover { color:var(--accent); }
+    main { max-width:720px; margin:0 auto; padding:1.5rem; }
+    .panel { background:#fff; border:1px solid var(--line); border-radius:8px; padding:1rem; margin:0.75rem 0; }
+    .panel h2 { margin:0 0 0.5rem; font-size:1rem; }
+    .ok { color:var(--ok); }
+    .bad { color:var(--bad); }
+    .meta { color:var(--muted); font-size:0.9rem; }
+    pre { white-space:pre-wrap; margin:0; font:13px/1.4 ui-monospace, monospace; }
+    code { font:13px ui-monospace, monospace; background:#f0ebe0; padding:0.1rem 0.3rem; border-radius:3px; }
+    ul { margin:0.4rem 0; padding-left:1.2rem; color:var(--muted); }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>rocky-mem</strong>
+    <nav><a href="/">Search</a><a href="/review">Review</a><a href="/entry">Entry</a><a href="/settings">Settings</a></nav>
+  </header>
+  <main>
+    <p class="meta" id="status">Loading doctor…</p>
+    <div class="panel">
+      <h2>Store health</h2>
+      <pre id="doctor">…</pre>
+    </div>
+    <div class="panel">
+      <h2>Ops shortcuts</h2>
+      <ul>
+        <li>Backup once: <code>make backup</code></li>
+        <li>Daily cron: <code>./scripts/backup-daily.sh</code> — see <code>docs/backup.md</code></li>
+        <li>MCP/CLI use the same loopback token as this cookie session (HttpOnly).</li>
+      </ul>
+    </div>
+  </main>
+  <script>
+    const status = document.getElementById('status');
+    const doctor = document.getElementById('doctor');
+    (async () => {
+      try {
+        const res = await fetch('/api/v1/doctor', { credentials: 'same-origin' });
+        const data = await res.json();
+        if (!res.ok) throw new Error((data.error && data.error.message) || res.statusText);
+        const ok = data.search_doc_ok !== false && !data.error;
+        status.className = ok ? 'ok' : 'bad';
+        status.textContent = ok ? 'Doctor OK' : 'Doctor reported issues';
+        doctor.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        status.className = 'bad';
+        status.textContent = String(err);
+        doctor.textContent = '';
+      }
+    })();
+  </script>
+</body>
+</html>

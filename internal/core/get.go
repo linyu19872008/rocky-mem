@@ -61,6 +61,10 @@ func (s *Service) getExperience(ctx context.Context, uid string, includeRaw bool
 			}
 			related = append(related, map[string]any{
 				"uid": p.UID, "relation": "contradicts", "title": p.Title,
+				"trust": p.Trust, "exp_type": p.ExpType, "confidence": p.Confidence,
+				"symptom": p.Symptom, "fix_md": p.FixMD,
+				"applies_when": p.AppliesWhen, "invalid_when": p.InvalidWhen,
+				"outcome": p.Outcome,
 			})
 		}
 	}

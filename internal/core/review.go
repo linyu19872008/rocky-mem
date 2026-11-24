@@ -10,13 +10,15 @@ import (
 
 // ReviewItem is a proposed/contested experience awaiting human action.
 type ReviewItem struct {
-	UID         string  `json:"uid"`
-	Title       string  `json:"title"`
-	Trust       string  `json:"trust"`
-	ExpType     string  `json:"exp_type"`
-	Confidence  float64 `json:"confidence"`
-	AppliesWhen string  `json:"applies_when"`
-	TCreated    int64   `json:"t_created"`
+	UID           string  `json:"uid"`
+	Title         string  `json:"title"`
+	Trust         string  `json:"trust"`
+	ExpType       string  `json:"exp_type"`
+	Confidence    float64 `json:"confidence"`
+	Symptom       string  `json:"symptom,omitempty"`
+	AppliesWhen   string  `json:"applies_when"`
+	ConflictGroup string  `json:"conflict_group,omitempty"`
+	TCreated      int64   `json:"t_created"`
 }
 
 // ReviewList returns experiences in the given trusts (default proposed+contested).
@@ -35,7 +37,8 @@ func (s *Service) ReviewList(ctx context.Context, trusts []string, limit int) ([
 	for _, e := range rows {
 		out = append(out, ReviewItem{
 			UID: e.UID, Title: e.Title, Trust: e.Trust, ExpType: e.ExpType,
-			Confidence: e.Confidence, AppliesWhen: e.AppliesWhen, TCreated: e.TCreated,
+			Confidence: e.Confidence, Symptom: e.Symptom, AppliesWhen: e.AppliesWhen,
+			ConflictGroup: e.ConflictGroup, TCreated: e.TCreated,
 		})
 	}
 	return out, nil

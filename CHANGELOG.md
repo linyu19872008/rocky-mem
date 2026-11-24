@@ -14,9 +14,10 @@ migration note.
 ### Added
 
 - **Tier-3 (local):** `internal/store/conformance` SQLite suite (supersede rev
-  conflict, raw hash, feedback/trust, purge); web `/entry` detail with conflict
-  peers + feedback; search/review link into entries; HttpOnly cookie web auth
-  (no Bearer in page). See `docs/tier3.md`.
+  conflict, raw hash, feedback/trust, purge); web `/entry` detail with
+  side-by-side conflict compare + feedback; `/review` trust filters and conflict
+  grouping; `/settings` doctor snapshot; HttpOnly cookie web auth (no Bearer in
+  page). See `docs/tier3.md`.
 - **Backup automation:** `backup --dir/--retain`, `make backup`,
   `scripts/backup-daily.sh`, docs in `docs/backup.md`.
 - **Tier-2:** `backup`/`restore` (`VACUUM INTO`), short-query LIKE hardening,

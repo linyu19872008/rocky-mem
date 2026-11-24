@@ -129,4 +129,11 @@ func TestCookieAuthAndWebSession(t *testing.T) {
 	if rr3.Code != http.StatusOK || !strings.Contains(rr3.Body.String(), "Loading") {
 		t.Fatalf("entry page: %d", rr3.Code)
 	}
+
+	req4 := httptest.NewRequest(http.MethodGet, "/settings", nil)
+	rr4 := httptest.NewRecorder()
+	h.ServeHTTP(rr4, req4)
+	if rr4.Code != http.StatusOK || !strings.Contains(rr4.Body.String(), "Store health") {
+		t.Fatalf("settings page: %d", rr4.Code)
+	}
 }

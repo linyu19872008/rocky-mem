@@ -5,9 +5,10 @@
 | Item | Surface |
 |------|---------|
 | Store conformance | `internal/store/conformance` — dialect-neutral suite; SQLite runner green. Postgres plugs the same `Suite` later. |
-| Web entry detail | `/entry?uid=m_…\|e_…` — evidence, conflict peers, approve/reject/feedback |
+| Web entry detail | `/entry?uid=m_…\|e_…` — evidence, side-by-side conflict compare, approve/reject/feedback |
 | Search polish | Hit list with links into entry detail |
-| Review polish | Links to entry detail; shows trust/type |
+| Review polish | Trust filter, conflict-group sections, Compare → entry |
+| Settings | `/settings` — doctor snapshot + backup shortcuts |
 
 Cookie session auth (HttpOnly) remains: open logged URLs, no Bearer typing.
 

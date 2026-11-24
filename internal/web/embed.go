@@ -34,6 +34,7 @@ func Mount(mux *http.ServeMux, token string) {
 	indexT := template.Must(template.ParseFS(templatesFS, "templates/index.html"))
 	reviewT := template.Must(template.ParseFS(templatesFS, "templates/review.html"))
 	entryT := template.Must(template.ParseFS(templatesFS, "templates/entry.html"))
+	settingsT := template.Must(template.ParseFS(templatesFS, "templates/settings.html"))
 
 	serve := func(t *template.Template, title string) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
@@ -46,4 +47,5 @@ func Mount(mux *http.ServeMux, token string) {
 	mux.HandleFunc("GET /{$}", serve(indexT, "rocky-mem search"))
 	mux.HandleFunc("GET /review", serve(reviewT, "rocky-mem review"))
 	mux.HandleFunc("GET /entry", serve(entryT, "rocky-mem entry"))
+	mux.HandleFunc("GET /settings", serve(settingsT, "rocky-mem settings"))
 }
