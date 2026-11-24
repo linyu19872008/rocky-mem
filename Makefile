@@ -57,6 +57,6 @@ verify-tier2: build
 
 # Tier-3 gate: store conformance + web/cookie auth + prior gates.
 verify-tier3: build
-	go test ./internal/store/conformance/ ./internal/store/sqlite/ ./internal/api/ ./internal/core/ ./internal/eval/ ./internal/termmap/ ./internal/daemon/ ./internal/adoption/
+	go test ./internal/store/conformance/ ./internal/store/sqlite/ ./internal/api/ ./internal/core/ ./internal/extract/ ./internal/eval/ ./internal/termmap/ ./internal/daemon/ ./internal/adoption/
 	./$(BINARY) eval --min-recall 0.8
 	@echo "OK: tier-3 automated gate passed"

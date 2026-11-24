@@ -8,7 +8,10 @@ import { Button } from "../components/Button";
 
 type Preview = {
   filename?: string;
+  format?: string;
   content_hash: string;
+  char_count?: number;
+  chunk_count?: number;
   original: string;
   redacted: string;
   hits?: Record<string, number>;
@@ -16,6 +19,7 @@ type Preview = {
   rejected: boolean;
   reject_why?: string;
   rule_pack: string;
+  notice?: string;
 };
 
 type ConfirmResult = {
@@ -25,6 +29,17 @@ type ConfirmResult = {
   review_required?: boolean;
 };
 
+async function fileToBase64(file: File): Promise<string> {
+  const buf = await file.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
 export function IngestPage() {
   const intl = useIntl();
   const [preview, setPreview] = useState<Preview | null>(null);
@@ -33,7 +48,35 @@ export function IngestPage() {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<ConfirmResult | null>(null);
 
-  const runPreview = useCallback(
+  const runPreviewBytes = useCallback(
+    async (contentBase64: string, filename: string, contentType?: string) => {
+      setBusy(true);
+      setErr("");
+      setDone(null);
+      try {
+        const out = await api<Preview>("/api/v1/ingest/preview", {
+          content_base64: contentBase64,
+          filename,
+          content_type: contentType,
+        });
+        setPreview(out);
+        setTitle((prev) => prev || (filename ? `Ingest: ${filename}` : ""));
+      } catch (ex) {
+        const code = ex instanceof ApiRequestError ? ex.code : "ERR_INTERNAL";
+        const msg =
+          ex instanceof ApiRequestError && ex.message
+            ? ex.message
+            : intl.formatMessage({ id: `error.${code}`, defaultMessage: intl.formatMessage({ id: "error.generic" }) });
+        setErr(msg);
+        setPreview(null);
+      } finally {
+        setBusy(false);
+      }
+    },
+    [intl],
+  );
+
+  const runPreviewText = useCallback(
     async (text: string, filename: string) => {
       setBusy(true);
       setErr("");
@@ -41,33 +84,39 @@ export function IngestPage() {
       try {
         const out = await api<Preview>("/api/v1/ingest/preview", { text, filename });
         setPreview(out);
-        if (!title && filename) {
-          setTitle(`Ingest: ${filename}`);
-        }
+        setTitle((prev) => prev || (filename ? `Ingest: ${filename}` : ""));
       } catch (ex) {
         const code = ex instanceof ApiRequestError ? ex.code : "ERR_INTERNAL";
-        setErr(intl.formatMessage({ id: `error.${code}`, defaultMessage: intl.formatMessage({ id: "error.generic" }) }));
+        const msg =
+          ex instanceof ApiRequestError && ex.message
+            ? ex.message
+            : intl.formatMessage({ id: `error.${code}`, defaultMessage: intl.formatMessage({ id: "error.generic" }) });
+        setErr(msg);
         setPreview(null);
       } finally {
         setBusy(false);
       }
     },
-    [intl, title],
+    [intl],
   );
 
   async function onDrop(e: DragEvent) {
     e.preventDefault();
     const file = e.dataTransfer.files?.[0];
     if (!file) return;
-    const text = await file.text();
-    await runPreview(text, file.name);
+    if (file.size > 15 * 1024 * 1024) {
+      setErr(intl.formatMessage({ id: "ingest.tooLarge" }));
+      return;
+    }
+    const b64 = await fileToBase64(file);
+    await runPreviewBytes(b64, file.name, file.type);
   }
 
   async function onPasteSubmit(e: FormEvent) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget as HTMLFormElement);
     const text = String(fd.get("text") || "");
-    await runPreview(text, "paste.txt");
+    await runPreviewText(text, "paste.txt");
   }
 
   async function onConfirm() {
@@ -79,12 +128,17 @@ export function IngestPage() {
         redacted: preview.redacted,
         filename: preview.filename,
         title: title.trim() || undefined,
+        format: preview.format,
       });
       setDone(out);
       setPreview(null);
     } catch (ex) {
       const code = ex instanceof ApiRequestError ? ex.code : "ERR_INTERNAL";
-      setErr(intl.formatMessage({ id: `error.${code}`, defaultMessage: intl.formatMessage({ id: "error.generic" }) }));
+      const msg =
+        ex instanceof ApiRequestError && ex.message
+          ? ex.message
+          : intl.formatMessage({ id: `error.${code}`, defaultMessage: intl.formatMessage({ id: "error.generic" }) });
+      setErr(msg);
     } finally {
       setBusy(false);
     }
@@ -111,11 +165,7 @@ export function IngestPage() {
 
       {!preview && !done ? (
         <>
-          <div
-            className="drop-zone"
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(ev) => void onDrop(ev)}
-          >
+          <div className="drop-zone" onDragOver={(e) => e.preventDefault()} onDrop={(ev) => void onDrop(ev)}>
             <div style={{ fontWeight: 650, marginBottom: "0.5rem" }}>
               <FormattedMessage id="ingest.drop" />
             </div>
@@ -137,63 +187,62 @@ export function IngestPage() {
       ) : null}
 
       {preview ? (
-        <>
-          <DataCard title={<FormattedMessage id="ingest.previewTitle" />}>
-            <p className="meta">
-              {preview.filename || "—"} · L{preview.sensitivity_level} · {preview.rule_pack} ·{" "}
-              {preview.content_hash.slice(0, 12)}…
+        <DataCard title={<FormattedMessage id="ingest.previewTitle" />}>
+          <p className="meta">
+            {preview.filename || "—"} · {preview.format || "?"} · L{preview.sensitivity_level} ·{" "}
+            {preview.rule_pack} · {preview.char_count ?? "?"} chars · {preview.chunk_count ?? "?"} chunks ·{" "}
+            {preview.content_hash.slice(0, 12)}…
+          </p>
+          {preview.notice ? <p className="meta">{preview.notice}</p> : null}
+          {preview.rejected ? (
+            <p className="err">
+              <FormattedMessage id="ingest.rejected" /> {preview.reject_why}
             </p>
-            {preview.rejected ? (
-              <p className="err">
-                <FormattedMessage id="ingest.rejected" /> {preview.reject_why}
-              </p>
-            ) : null}
-            {hitEntries.length ? (
-              <p className="meta">
-                <FormattedMessage id="ingest.hits" />:{" "}
-                {hitEntries.map(([k, n]) => `${k}×${n}`).join(", ")}
-              </p>
-            ) : (
-              <p className="meta">
-                <FormattedMessage id="ingest.noHits" />
-              </p>
-            )}
-            <label className="field">
-              <b>
-                <FormattedMessage id="ingest.titleField" />
-              </b>
-              <input value={title} onChange={(e) => setTitle(e.target.value)} disabled={busy} />
-            </label>
-            <div className="compare ingest-compare">
-              <div>
-                <h4>
-                  <FormattedMessage id="ingest.original" />
-                </h4>
-                <pre>{preview.original}</pre>
-              </div>
-              <div>
-                <h4>
-                  <FormattedMessage id="ingest.redacted" />
-                </h4>
-                <pre>{preview.redacted}</pre>
-              </div>
+          ) : null}
+          {hitEntries.length ? (
+            <p className="meta">
+              <FormattedMessage id="ingest.hits" />: {hitEntries.map(([k, n]) => `${k}×${n}`).join(", ")}
+            </p>
+          ) : (
+            <p className="meta">
+              <FormattedMessage id="ingest.noHits" />
+            </p>
+          )}
+          <label className="field">
+            <b>
+              <FormattedMessage id="ingest.titleField" />
+            </b>
+            <input value={title} onChange={(e) => setTitle(e.target.value)} disabled={busy} />
+          </label>
+          <div className="compare ingest-compare">
+            <div>
+              <h4>
+                <FormattedMessage id="ingest.original" />
+              </h4>
+              <pre>{preview.original}</pre>
             </div>
-            <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.75rem" }}>
-              <Button variant="primary" disabled={busy || preview.rejected} onClick={() => void onConfirm()}>
-                <FormattedMessage id="ingest.confirm" />
-              </Button>
-              <Button
-                disabled={busy}
-                onClick={() => {
-                  setPreview(null);
-                  setErr("");
-                }}
-              >
-                <FormattedMessage id="ingest.cancel" />
-              </Button>
+            <div>
+              <h4>
+                <FormattedMessage id="ingest.redacted" />
+              </h4>
+              <pre>{preview.redacted}</pre>
             </div>
-          </DataCard>
-        </>
+          </div>
+          <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.75rem" }}>
+            <Button variant="primary" disabled={busy || preview.rejected} onClick={() => void onConfirm()}>
+              <FormattedMessage id="ingest.confirm" />
+            </Button>
+            <Button
+              disabled={busy}
+              onClick={() => {
+                setPreview(null);
+                setErr("");
+              }}
+            >
+              <FormattedMessage id="ingest.cancel" />
+            </Button>
+          </div>
+        </DataCard>
       ) : null}
     </>
   );

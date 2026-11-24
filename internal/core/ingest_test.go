@@ -1,7 +1,10 @@
 package core_test
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
+	"encoding/base64"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -28,6 +31,9 @@ func TestIngestPreviewAndConfirm(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if prev.Format != "plain" {
+		t.Fatalf("format=%s", prev.Format)
+	}
 	if prev.Hits["generic_secret"] < 1 {
 		t.Fatalf("expected secret hit: %+v", prev.Hits)
 	}
@@ -35,13 +41,64 @@ func TestIngestPreviewAndConfirm(t *testing.T) {
 		t.Fatalf("secret leaked in redacted: %s", prev.Redacted)
 	}
 	rec, err := svc.IngestConfirm(ctx, core.IngestConfirmInput{
-		Redacted: prev.Redacted, Filename: "note.md", Title: "Ingest secret sample",
+		Redacted: prev.Redacted, Filename: "note.md", Title: "Ingest secret sample", Format: prev.Format,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if rec.UID == "" || rec.Trust != "proposed" {
 		t.Fatalf("expected proposed experience: %+v", rec)
+	}
+}
+
+func TestIngestPreviewDOCXBase64(t *testing.T) {
+	dir := t.TempDir()
+	st, err := sqlite.Open(filepath.Join(dir, "t.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	ctx := context.Background()
+	if _, err := st.EnsureLocalUser(ctx); err != nil {
+		t.Fatal(err)
+	}
+	svc := core.NewService(st)
+
+	docx := minimalDOCX(t, "林宇加班 手机号测试")
+	prev, err := svc.IngestPreview(ctx, core.IngestPreviewInput{
+		Filename:      "林宇-10月-加班表.docx",
+		ContentBase64: base64.StdEncoding.EncodeToString(docx),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if prev.Format != "docx" {
+		t.Fatalf("format=%s", prev.Format)
+	}
+	if strings.Contains(prev.Original, "PK") {
+		t.Fatalf("zip leaked into original preview")
+	}
+	if !strings.Contains(prev.Original, "加班") {
+		t.Fatalf("missing extracted text: %q", prev.Original)
+	}
+}
+
+func TestIngestRejectsBinaryAsPlain(t *testing.T) {
+	dir := t.TempDir()
+	st, err := sqlite.Open(filepath.Join(dir, "t.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	ctx := context.Background()
+	_, _ = st.EnsureLocalUser(ctx)
+	svc := core.NewService(st)
+	_, err = svc.IngestPreview(ctx, core.IngestPreviewInput{
+		Filename: "x.md",
+		Text:     "PK\x03\x04" + strings.Repeat("\x00\x01\x02", 100),
+	})
+	if err == nil {
+		t.Fatal("expected error")
 	}
 }
 
@@ -90,4 +147,25 @@ func TestReviewResolveKeepArchivesPeers(t *testing.T) {
 	if ea2.Trust != "active" || eb2.Trust != "archived" {
 		t.Fatalf("trusts %s / %s", ea2.Trust, eb2.Trust)
 	}
+}
+
+func minimalDOCX(t *testing.T, body string) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	w, err := zw.Create("word/document.xml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	xml := `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body><w:p><w:r><w:t>` + body + `</w:t></w:r></w:p></w:body>
+</w:document>`
+	if _, err := w.Write([]byte(xml)); err != nil {
+		t.Fatal(err)
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return buf.Bytes()
 }

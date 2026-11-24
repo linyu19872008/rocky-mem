@@ -20,7 +20,9 @@ migration note.
 ### Added
 
 - **Two-phase ingest:** `POST /api/v1/ingest/preview|confirm` + Web `/ingest`
-  (redaction diff → proposed experience).
+  (extract → redaction diff → proposed experience). Supports plain text,
+  **docx / xlsx / PDF text-layer** via `content_base64`; rejects binary-as-text
+  and scanned PDFs. See `docs/ingest.md`.
 - **Search hit cards:** `PackResult.hits` with title / applies / invalid; Web
   Search page cards.
 - **Conflict resolve:** `POST /api/v1/review/resolve` (`keep` | `archive_all`)
