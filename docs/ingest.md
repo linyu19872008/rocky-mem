@@ -44,3 +44,5 @@ Extra preview fields for the UI:
 | `segments` | Inline diff pieces: `eq` / `del` / `ins` (+ optional `rule`) |
 
 Web: zero-hit → single pane; hits → one colored inline diff (`del` strike / `ins` green).
+Preview chrome shows filename + status chip; hash/rulepack live under “Technical details”.
+Tab-separated extract renders as a table when present.
