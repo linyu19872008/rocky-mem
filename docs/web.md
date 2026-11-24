@@ -45,7 +45,7 @@ pnpm --dir web dev  # terminal 2 — proxies /api to :7432
 | `/entry` | Entry detail + conflict compare; approve/reject in page header |
 | `/settings` | Preferences / doctor / ops cards |
 | `/overview` | Real KPIs via `GET /api/v1/stats` + recent pending list |
-| `/ingest` | Drop-zone placeholder for later two-phase ingest |
+| `/ingest` | Two-phase ingest: drop/paste → redact preview → confirm (`/api/v1/ingest/*`) |
 
 ## Locale resolution
 

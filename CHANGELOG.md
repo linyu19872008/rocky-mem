@@ -19,6 +19,15 @@ migration note.
 
 ### Added
 
+- **Two-phase ingest:** `POST /api/v1/ingest/preview|confirm` + Web `/ingest`
+  (redaction diff → proposed experience).
+- **Search hit cards:** `PackResult.hits` with title / applies / invalid; Web
+  Search page cards.
+- **Conflict resolve:** `POST /api/v1/review/resolve` (`keep` | `archive_all`)
+  on Entry when contested peers exist.
+- **Eval thickening:** more corpus entries + zh/en queries; eval uses term-map
+  via `NewService` (14/14 recall@10).
+- **Backup LaunchAgent installer:** `scripts/install-backup-launchd.sh`.
 - **Web SPA skeleton:** Vite + React + FormatJS embedded in `serve` (`make web`);
   en/zh-CN catalogs, light/dark/system theme, shared component kit; sidebar +
   top-bar admin shell (PageHeader / StatStrip / FilterChips); routes for

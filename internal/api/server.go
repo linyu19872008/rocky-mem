@@ -31,6 +31,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/review/list", s.auth(s.handleReviewList))
 	mux.HandleFunc("POST /api/v1/review/approve", s.auth(s.handleApprove))
 	mux.HandleFunc("POST /api/v1/review/reject", s.auth(s.handleReject))
+	mux.HandleFunc("POST /api/v1/review/resolve", s.auth(s.handleResolve))
+	mux.HandleFunc("POST /api/v1/ingest/preview", s.auth(s.handleIngestPreview))
+	mux.HandleFunc("POST /api/v1/ingest/confirm", s.auth(s.handleIngestConfirm))
 	mux.HandleFunc("POST /api/v1/reindex", s.auth(s.handleReindex))
 	mux.HandleFunc("POST /api/v1/purge", s.auth(s.handlePurge))
 	mux.HandleFunc("POST /api/v1/export", s.auth(s.handleExport))
@@ -193,6 +196,51 @@ func (s *Server) handleReject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out, err := s.Svc.ReviewReject(r.Context(), in.UID, in.Reason)
+	if err != nil {
+		writeErr(w, statusOf(err), errs.As(err))
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+func (s *Server) handleResolve(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		UID    string `json:"uid"`
+		Action string `json:"action"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+		writeErr(w, http.StatusBadRequest, errs.New(errs.InvalidRequest, err.Error(), nil))
+		return
+	}
+	out, err := s.Svc.ReviewResolve(r.Context(), in.UID, in.Action)
+	if err != nil {
+		writeErr(w, statusOf(err), errs.As(err))
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+func (s *Server) handleIngestPreview(w http.ResponseWriter, r *http.Request) {
+	var in core.IngestPreviewInput
+	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+		writeErr(w, http.StatusBadRequest, errs.New(errs.InvalidRequest, err.Error(), nil))
+		return
+	}
+	out, err := s.Svc.IngestPreview(r.Context(), in)
+	if err != nil {
+		writeErr(w, statusOf(err), errs.As(err))
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+func (s *Server) handleIngestConfirm(w http.ResponseWriter, r *http.Request) {
+	var in core.IngestConfirmInput
+	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+		writeErr(w, http.StatusBadRequest, errs.New(errs.InvalidRequest, err.Error(), nil))
+		return
+	}
+	out, err := s.Svc.IngestConfirm(r.Context(), in)
 	if err != nil {
 		writeErr(w, statusOf(err), errs.As(err))
 		return

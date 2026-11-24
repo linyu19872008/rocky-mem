@@ -5,16 +5,28 @@ import { api, ApiRequestError } from "../lib/api";
 import { Button } from "../components/Button";
 import { PageHeader } from "../components/PageHeader";
 import { DataCard } from "../components/DataCard";
+import { TrustBadge } from "../components/Badge";
+
+type HitSummary = {
+  uid: string;
+  kind: string;
+  title: string;
+  trust?: string;
+  applies_when?: string;
+  invalid_when?: string;
+  preview?: string;
+};
 
 type PackResult = {
   pack?: string;
   uids?: string[];
+  hits?: HitSummary[];
 };
 
 export function SearchPage() {
   const intl = useIntl();
   const [q, setQ] = useState("");
-  const [uids, setUids] = useState<string[]>([]);
+  const [hits, setHits] = useState<HitSummary[]>([]);
   const [pack, setPack] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
@@ -30,13 +42,17 @@ export function SearchPage() {
         include_proposed: true,
         budget_tokens: 1200,
       });
-      setUids(data.uids || []);
+      const cards =
+        data.hits && data.hits.length
+          ? data.hits
+          : (data.uids || []).map((uid) => ({ uid, kind: "unknown", title: uid }));
+      setHits(cards);
       setPack(data.pack || "");
       setSearched(true);
     } catch (ex) {
       const code = ex instanceof ApiRequestError ? ex.code : "ERR_INTERNAL";
       setErr(intl.formatMessage({ id: `error.${code}`, defaultMessage: intl.formatMessage({ id: "error.generic" }) }));
-      setUids([]);
+      setHits([]);
       setPack("");
     } finally {
       setBusy(false);
@@ -61,17 +77,43 @@ export function SearchPage() {
       {!searched && !err ? <p className="meta">{intl.formatMessage({ id: "search.empty" })}</p> : null}
       {searched ? (
         <p className="meta">
-          <FormattedMessage id="search.hits" values={{ count: uids.length }} />
+          <FormattedMessage id="search.hits" values={{ count: hits.length }} />
         </p>
       ) : null}
-      {uids.length > 0 ? (
-        <ul className="hits">
-          {uids.map((id) => (
-            <li key={id}>
-              <Link to={`/entry?uid=${encodeURIComponent(id)}`}>{id}</Link>
-            </li>
+      {hits.length > 0 ? (
+        <div className="hit-list">
+          {hits.map((h) => (
+            <article key={h.uid} className="hit-card">
+              <header>
+                <h3>
+                  <Link to={`/entry?uid=${encodeURIComponent(h.uid)}`}>{h.title || h.uid}</Link>
+                </h3>
+                <div className="hit-meta">
+                  <span className="meta">{h.kind}</span>
+                  {h.trust ? <TrustBadge trust={h.trust} /> : null}
+                </div>
+              </header>
+              {h.applies_when ? (
+                <p>
+                  <b>
+                    <FormattedMessage id="search.appliesWhen" />
+                  </b>
+                  : {h.applies_when}
+                </p>
+              ) : null}
+              {h.invalid_when ? (
+                <p>
+                  <b>
+                    <FormattedMessage id="search.invalidWhen" />
+                  </b>
+                  : {h.invalid_when}
+                </p>
+              ) : null}
+              {h.preview ? <p className="meta">{h.preview}</p> : null}
+              <p className="meta mono">{h.uid}</p>
+            </article>
           ))}
-        </ul>
+        </div>
       ) : null}
       {pack ? (
         <DataCard title={<FormattedMessage id="search.pack" />}>

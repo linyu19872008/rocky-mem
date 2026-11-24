@@ -93,7 +93,7 @@ func Run(ctx context.Context, c Corpus) (*Report, error) {
 	if _, err := st.EnsureLocalUser(ctx); err != nil {
 		return nil, err
 	}
-	svc := &core.Service{Store: st}
+	svc := core.NewService(st)
 
 	idToUID := map[string]string{}
 	for _, e := range c.Entries {

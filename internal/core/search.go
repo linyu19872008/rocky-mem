@@ -31,11 +31,23 @@ type SearchInput struct {
 	Limit           int      `json:"limit,omitempty"`
 }
 
+// HitSummary is a card-friendly search hit (UI), ordered like UIDs.
+type HitSummary struct {
+	UID         string `json:"uid"`
+	Kind        string `json:"kind"`
+	Title       string `json:"title"`
+	Trust       string `json:"trust,omitempty"`
+	AppliesWhen string `json:"applies_when,omitempty"`
+	InvalidWhen string `json:"invalid_when,omitempty"`
+	Preview     string `json:"preview,omitempty"`
+}
+
 // PackResult is a budgeted context pack.
 type PackResult struct {
 	Pack          string         `json:"pack"`
 	Sections      []SectionCount `json:"sections,omitempty"`
 	UIDs          []string       `json:"uids"`
+	Hits          []HitSummary   `json:"hits,omitempty"`
 	Truncated     bool           `json:"truncated"`
 	Omitted       int            `json:"omitted,omitempty"`
 	ScopeResolved *ScopeResolved `json:"scope_resolved,omitempty"`
@@ -190,10 +202,39 @@ func (s *Service) Search(ctx context.Context, in SearchInput) (*PackResult, erro
 		notice = &n
 	}
 	return &PackResult{
-		Pack: pack, UIDs: uids, Truncated: truncated, Omitted: omitted,
+		Pack: pack, UIDs: uids, Hits: buildHits(mems, exps, uids),
+		Truncated: truncated, Omitted: omitted,
 		ScopeResolved: resolved, Notice: notice, RequestID: uid.Request(),
 		Sections: sectionCounts(pack),
 	}, nil
+}
+
+func buildHits(mems []store.Memory, exps []store.Experience, uids []string) []HitSummary {
+	byUID := map[string]HitSummary{}
+	for _, m := range mems {
+		byUID[m.UID] = HitSummary{
+			UID: m.UID, Kind: "memory", Title: m.Title, Trust: m.Status,
+			Preview: trunc(m.BodyMD, 160),
+		}
+	}
+	for _, e := range exps {
+		prev := e.Symptom
+		if prev == "" {
+			prev = e.FixMD
+		}
+		byUID[e.UID] = HitSummary{
+			UID: e.UID, Kind: "experience", Title: e.Title, Trust: e.Trust,
+			AppliesWhen: e.AppliesWhen, InvalidWhen: e.InvalidWhen,
+			Preview: trunc(prev, 160),
+		}
+	}
+	out := make([]HitSummary, 0, len(uids))
+	for _, id := range uids {
+		if h, ok := byUID[id]; ok {
+			out = append(out, h)
+		}
+	}
+	return out
 }
 
 func ownerIDs(cands []store.Candidate, kind string) []int64 {

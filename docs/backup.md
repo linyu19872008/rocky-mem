@@ -18,7 +18,14 @@ make backup
 # RETAIN=30 ROCKYMEM_BACKUP_DIR=$PWD/.local/backups ./scripts/backup-daily.sh
 ```
 
-Cron example (03:15 UTC daily):
+### macOS LaunchAgent (recommended on this machine)
+
+```bash
+./scripts/install-backup-launchd.sh
+# runs daily at 03:15 local; logs to .local/backup.log
+```
+
+### Cron
 
 ```
 15 3 * * * cd /path/to/rocky-mem && ./scripts/backup-daily.sh >> .local/backup.log 2>&1

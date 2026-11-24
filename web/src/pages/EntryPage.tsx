@@ -111,6 +111,8 @@ export function EntryPage() {
   const title = String(e.title || data?.uid || intl.formatMessage({ id: "entry.title" }));
   const lang = typeof e.lang === "string" ? e.lang : undefined;
   const canReview = data?.type === "experience" && (trust === "proposed" || trust === "contested");
+  const canResolve =
+    data?.type === "experience" && trust === "contested" && (data.related?.length || 0) > 0;
 
   const headerActions = canReview ? (
     <>
@@ -132,6 +134,28 @@ export function EntryPage() {
       >
         <FormattedMessage id="review.action.reject" />
       </Button>
+      {canResolve ? (
+        <>
+          <Button
+            variant="ok"
+            onClick={async () => {
+              await api("/api/v1/review/resolve", { uid: data!.uid, action: "keep" });
+              await load();
+            }}
+          >
+            <FormattedMessage id="entry.resolve.keep" />
+          </Button>
+          <Button
+            variant="bad"
+            onClick={async () => {
+              await api("/api/v1/review/resolve", { uid: data!.uid, action: "archive_all" });
+              await load();
+            }}
+          >
+            <FormattedMessage id="entry.resolve.archiveAll" />
+          </Button>
+        </>
+      ) : null}
     </>
   ) : undefined;
 

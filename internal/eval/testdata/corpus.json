@@ -177,6 +177,30 @@
       "symptom": "time.Now assertions fail near midnight UTC",
       "fix": "inject clock interface in tests",
       "applies_when": "unit tests depending on wall clock"
+    },
+    {
+      "id": "canary1",
+      "title": "Canary release metrics gate before full rollout",
+      "symptom": "bad build reaches 100% traffic before error rate is checked",
+      "fix": "hold canary at 5% until SLO window passes; auto-rollback on burn",
+      "applies_when": "gradual rollout / canary deployments",
+      "invalid_when": "single-replica emergency hotfix with no metrics"
+    },
+    {
+      "id": "deadlock1",
+      "title": "Mutex lock order deadlock across packages",
+      "symptom": "process hangs; goroutine dump shows lock cycles",
+      "fix": "define a global lock hierarchy; never lock A then B and B then A",
+      "applies_when": "Go concurrency with multiple mutexes",
+      "invalid_when": "single lock critical sections"
+    },
+    {
+      "id": "token1",
+      "title": "Serve bearer rotates on every restart breaks Cursor MCP",
+      "symptom": "mem_* returns ERR_UNAUTHORIZED after make serve restart",
+      "fix": "reuse rocky-mem.token across restarts; rotate only with --rotate-token",
+      "applies_when": "solo rockymem serve + long-lived Cursor MCP",
+      "invalid_when": "team remote auth tokens"
     }
   ],
   "queries": [
@@ -189,6 +213,10 @@
     {"q": "SQLite on NFS", "relevant": ["nfs1"]},
     {"q": "go embed migrations", "relevant": ["embed1"]},
     {"q": "OAuth state CSRF", "relevant": ["oauth1"]},
-    {"q": "MCP project_id seed miss", "relevant": ["mcp1"]}
+    {"q": "MCP project_id seed miss", "relevant": ["mcp1"]},
+    {"q": "滚动更新 ConfigMap", "relevant": ["cm1"]},
+    {"q": "灰度发布 回滚", "relevant": ["canary1"]},
+    {"q": "死锁 mutex", "relevant": ["deadlock1"]},
+    {"q": "serve token MCP unauthorized", "relevant": ["token1"]}
   ]
 }

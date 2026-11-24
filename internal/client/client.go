@@ -127,6 +127,30 @@ func (c *Client) ReviewReject(ctx context.Context, uid, reason string) (*core.Re
 	return &out, nil
 }
 
+func (c *Client) ReviewResolve(ctx context.Context, keepUID, action string) (*core.ReviewResolveResult, error) {
+	var out core.ReviewResolveResult
+	if err := c.post(ctx, "/api/v1/review/resolve", map[string]string{"uid": keepUID, "action": action}, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) IngestPreview(ctx context.Context, in core.IngestPreviewInput) (*core.IngestPreviewResult, error) {
+	var out core.IngestPreviewResult
+	if err := c.post(ctx, "/api/v1/ingest/preview", in, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) IngestConfirm(ctx context.Context, in core.IngestConfirmInput) (*core.RecordResult, error) {
+	var out core.RecordResult
+	if err := c.post(ctx, "/api/v1/ingest/confirm", in, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
 func (c *Client) Reindex(ctx context.Context) (*core.ReindexResult, error) {
 	var out core.ReindexResult
 	if err := c.post(ctx, "/api/v1/reindex", map[string]any{}, &out); err != nil {

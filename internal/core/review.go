@@ -97,3 +97,70 @@ func (s *Service) ReviewReject(ctx context.Context, uid, reason string) (*Review
 	_ = s.Store.InsertAudit(ctx, "reject", "experience", &e.ID, e.UID, detail)
 	return &ReviewResult{UID: e.UID, Trust: "archived", Status: "rejected"}, nil
 }
+
+// ReviewResolveResult summarises conflict one-click actions.
+type ReviewResolveResult struct {
+	Action   string   `json:"action"`
+	Kept     string   `json:"kept,omitempty"`
+	Archived []string `json:"archived,omitempty"`
+}
+
+// ReviewResolve applies keep (approve keep, archive peers) or archive_all.
+func (s *Service) ReviewResolve(ctx context.Context, keepUID, action string) (*ReviewResolveResult, error) {
+	keepUID = strings.TrimSpace(keepUID)
+	action = strings.TrimSpace(action)
+	if keepUID == "" {
+		return nil, errs.New(errs.FieldRequired, "uid required", nil)
+	}
+	if action != "keep" && action != "archive_all" {
+		return nil, errs.New(errs.FieldInvalid, "action must be keep or archive_all", map[string]any{"action": action})
+	}
+	e, err := s.Store.GetExperienceByUID(ctx, keepUID)
+	if err != nil {
+		return nil, err
+	}
+	if e == nil {
+		return nil, errs.New(errs.NotFound, "experience not found", map[string]any{"uid": keepUID})
+	}
+	peers := []store.Experience{}
+	if e.ConflictGroup != "" {
+		peers, err = s.Store.FindExperiencesByConflictGroup(ctx, e.ConflictGroup)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		peers = []store.Experience{*e}
+	}
+	out := &ReviewResolveResult{Action: action}
+	if action == "keep" {
+		if _, err := s.ReviewApprove(ctx, keepUID); err != nil {
+			return nil, err
+		}
+		out.Kept = keepUID
+		for _, p := range peers {
+			if p.UID == keepUID {
+				continue
+			}
+			if p.Trust == "archived" || p.Trust == "falsified" {
+				continue
+			}
+			if _, err := s.ReviewReject(ctx, p.UID, "resolve:kept-other"); err != nil {
+				return nil, err
+			}
+			out.Archived = append(out.Archived, p.UID)
+		}
+		_ = s.Store.InsertAudit(ctx, "verify", "experience", &e.ID, e.UID, "review:resolve:keep")
+		return out, nil
+	}
+	for _, p := range peers {
+		if p.Trust == "archived" || p.Trust == "falsified" {
+			continue
+		}
+		if _, err := s.ReviewReject(ctx, p.UID, "resolve:archive-all"); err != nil {
+			return nil, err
+		}
+		out.Archived = append(out.Archived, p.UID)
+	}
+	_ = s.Store.InsertAudit(ctx, "reject", "experience", &e.ID, e.UID, "review:resolve:archive_all")
+	return out, nil
+}
