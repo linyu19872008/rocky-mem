@@ -5,6 +5,7 @@
 dist/
 web/node_modules/
 web/dist/
+internal/web/dist/
 .DS_Store
 coverage.out
 *.exe

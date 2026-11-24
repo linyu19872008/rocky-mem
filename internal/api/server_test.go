@@ -126,14 +126,24 @@ func TestCookieAuthAndWebSession(t *testing.T) {
 	req3 := httptest.NewRequest(http.MethodGet, "/entry?uid=e_x", nil)
 	rr3 := httptest.NewRecorder()
 	h.ServeHTTP(rr3, req3)
-	if rr3.Code != http.StatusOK || !strings.Contains(rr3.Body.String(), "Loading") {
-		t.Fatalf("entry page: %d", rr3.Code)
+	body3 := rr3.Body.String()
+	if rr3.Code != http.StatusOK || !strings.Contains(body3, `id="root"`) || !strings.Contains(body3, "__ROCKY_BOOT__") {
+		t.Fatalf("entry spa shell: %d", rr3.Code)
 	}
 
 	req4 := httptest.NewRequest(http.MethodGet, "/settings", nil)
 	rr4 := httptest.NewRecorder()
 	h.ServeHTTP(rr4, req4)
-	if rr4.Code != http.StatusOK || !strings.Contains(rr4.Body.String(), "Store health") {
-		t.Fatalf("settings page: %d", rr4.Code)
+	if rr4.Code != http.StatusOK || !strings.Contains(rr4.Body.String(), `id="root"`) {
+		t.Fatalf("settings spa shell: %d", rr4.Code)
+	}
+
+	// Locale from Accept-Language is injected into boot JSON.
+	req5 := httptest.NewRequest(http.MethodGet, "/", nil)
+	req5.Header.Set("Accept-Language", "zh-CN,zh;q=0.9")
+	rr5 := httptest.NewRecorder()
+	h.ServeHTTP(rr5, req5)
+	if !strings.Contains(rr5.Body.String(), `"locale":"zh-CN"`) {
+		t.Fatalf("expected zh-CN boot locale, got: %s", rr5.Body.String()[:min(200, rr5.Body.Len())])
 	}
 }

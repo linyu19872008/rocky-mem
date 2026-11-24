@@ -9,6 +9,7 @@
 | Search polish | Hit list with links into entry detail |
 | Review polish | Trust filter, conflict-group sections, Compare → entry |
 | Settings | `/settings` — doctor snapshot + backup shortcuts |
+| Web SPA (follow-on) | Vite/React/FormatJS skeleton — en/zh-CN, light/dark; see [web.md](web.md) |
 
 Cookie session auth (HttpOnly) remains: open logged URLs, no Bearer typing.
 

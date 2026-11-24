@@ -13,10 +13,11 @@
 ---
 
 > **本译文的基准是 `README.md`；英文版为唯一真相，本页可能滞后。**
-> 当前进度：**Tier-3（本地）** — Cookie Web（检索/审核/条目详情）、`store/conformance`、
-> 备份与术语扩展；验收 `make verify-tier3`（[docs/tier3.md](docs/tier3.md)）。
-> 未推远端，等你说一声。PostgreSQL / 完整 Web 仍属后续。
-> `design/DESIGN.md` 等设计文档本身就是中文；契约与工程文档为英文，划分见 [design/README.md](design/README.md)。
+> 当前进度：**Tier-3 + Web SPA 骨架** — Cookie 鉴权的 React UI（中英、明暗主题）、
+> `store/conformance`、备份与术语扩展；验收 `make verify-tier3`
+>（[docs/tier3.md](docs/tier3.md)、[docs/web.md](docs/web.md)）。已打 tag `v0.1.0-tier3`。
+> PostgreSQL / 投喂仍属后续。`design/DESIGN.md` 等为中文；契约与工程文档为英文，
+> 划分见 [design/README.md](design/README.md)。
 
 ## 为什么做这个
 
@@ -87,7 +88,7 @@ agent 在开始工作前调用一次：
 - **两类知识** — 带稳定版本链的记忆；带可信度、冲突与证伪的经验台账。
 - **运维 CLI** — `review` / `reindex` / `purge` / `export` / `backup`（`make backup`） / `restore` / `eval`。
 - **检索** — FTS5 + 短查询 LIKE + zh→en 术语扩展。
-- **最小 Web** — `serve` 上的检索调试页与审核队列。
+- **Web SPA** — React 检索 / 审核 / 条目 / 设置；en·zh-CN；明暗主题（`make web`）。
 - **幂等写入** — remember/record 内容去重；memory `rev` CAS。
 
 **规划中：**

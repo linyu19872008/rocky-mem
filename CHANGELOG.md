@@ -13,6 +13,10 @@ migration note.
 
 ### Added
 
+- **Web SPA skeleton:** Vite + React + FormatJS embedded in `serve` (`make web`);
+  en/zh-CN catalogs, light/dark/system theme, shared component kit; sidebar +
+  top-bar admin shell (PageHeader / StatStrip / FilterChips); routes for
+  search/review/entry/settings/overview/ingest. See `docs/web.md`.
 - **Tier-3 (local):** `internal/store/conformance` SQLite suite (supersede rev
   conflict, raw hash, feedback/trust, purge); web `/entry` detail with
   side-by-side conflict compare + feedback; `/review` trust filters and conflict

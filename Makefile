@@ -1,15 +1,20 @@
-.PHONY: build test lint doctor seed serve backup mcp-smoke verify-tier0 verify-tier1 verify-tier2 verify-tier3
+.PHONY: build web test lint doctor seed serve backup mcp-smoke verify-tier0 verify-tier1 verify-tier2 verify-tier3
 
 BINARY ?= bin/rockymem
 DSN ?= sqlite://$(CURDIR)/.local/rocky-mem.db
 BACKUP_DIR ?= $(CURDIR)/.local/backups
 BACKUP_RETAIN ?= 14
 
-build:
+web:
+	pnpm --dir web install --frozen-lockfile
+	pnpm --dir web i18n:check
+	pnpm --dir web build
+
+build: web
 	mkdir -p bin
 	go build -o $(BINARY) ./cmd/rockymem
 
-test:
+test: web
 	go test ./...
 
 lint:

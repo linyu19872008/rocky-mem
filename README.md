@@ -13,10 +13,10 @@ Memory is state. Experience is a ledger. Both are searchable in one call.
 
 ---
 
-> **Status: Tier-3 (local).** Six MCP tools, `serve` with cookie-auth web
-> (search / review / entry), store conformance suite, backup/eval/term-map.
-> Verify with `make verify-tier3`. See [docs/tier3.md](docs/tier3.md).
-> Not pushed until you ask — PostgreSQL / full Web remain later.
+> **Status: Tier-3 + Web SPA skeleton.** Six MCP tools, `serve` with cookie-auth
+> React UI (en/zh-CN, light/dark), store conformance, backup/eval/term-map.
+> Verify with `make verify-tier3`. See [docs/tier3.md](docs/tier3.md) and
+> [docs/web.md](docs/web.md). Tagged `v0.1.0-tier3`. PostgreSQL / ingest remain later.
 
 ## Why
 
@@ -103,7 +103,7 @@ they fail from applying it outside its conditions.
   ledger with trust states, conflict detection and falsification.
 - **CLI ops** — `review`, `reindex`, `purge`, `export`, `backup`/`make backup`, `restore`, `eval`.
 - **Retrieval** — FTS5 trigram + short-query LIKE + zh→en term-map expansion.
-- **Minimal web** — search debug + review queue on `serve` (loopback).
+- **Web SPA** — React search / review / entry / settings; en·zh-CN; light/dark (`make web`).
 - **Idempotent writes** — remember/record content dedupe; memory `rev` CAS.
 
 **Planned:**
