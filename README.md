@@ -127,7 +127,7 @@ directly. See [ADR-0005](design/adr/0005-technology-stack.md).
 # single binary
 brew install <org>/tap/rocky-mem
 
-rockymem init --dsn sqlite://~/.local/share/rocky-mem/rocky.db
+rockymem init --dsn sqlite://~/.local/share/rocky-mem/rocky-mem.db
 rockymem serve
 ```
 

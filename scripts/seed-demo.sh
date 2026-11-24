@@ -3,7 +3,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 BIN="${ROOT}/bin/rockymem"
-DSN="${ROCKYMEM_DSN:-sqlite://${ROOT}/.local/rocky.db}"
+DSN="${ROCKYMEM_DSN:-sqlite://${ROOT}/.local/rocky-mem.db}"
 export ROCKYMEM_HOME="${ROOT}/.local"
 
 mkdir -p "${ROOT}/.local"

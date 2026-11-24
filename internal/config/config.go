@@ -44,13 +44,13 @@ func Home() (string, error) {
 	}
 }
 
-// DefaultSQLitePath is Home()/rocky.db.
+// DefaultSQLitePath is Home()/rocky-mem.db.
 func DefaultSQLitePath() (string, error) {
 	home, err := Home()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, "rocky.db"), nil
+	return filepath.Join(home, "rocky-mem.db"), nil
 }
 
 // ParseDSN accepts sqlite://path or a bare filesystem path.

@@ -11,7 +11,7 @@ import (
 
 func TestRecordSearchRoundTrip(t *testing.T) {
 	dir := t.TempDir()
-	dbPath := filepath.Join(dir, "rocky.db")
+	dbPath := filepath.Join(dir, "rocky-mem.db")
 	st, err := sqlite.Open(dbPath)
 	if err != nil {
 		t.Fatal(err)

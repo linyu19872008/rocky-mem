@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "rocky-mem": {
+      "type": "stdio",
+      "command": "${workspaceFolder}/bin/rockymem",
+      "args": [
+        "--dsn",
+        "sqlite://${workspaceFolder}/.local/rocky-mem.db",
+        "mcp"
+      ]
+    }
+  }
+}

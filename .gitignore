@@ -8,5 +8,6 @@ web/dist/
 .DS_Store
 coverage.out
 *.exe
-.cursor/
+.cursor/*
+!.cursor/mcp.json
 .codegraph/

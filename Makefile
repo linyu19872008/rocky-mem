@@ -1,4 +1,4 @@
-.PHONY: build test lint doctor seed
+.PHONY: build test lint doctor seed mcp-smoke
 
 BINARY ?= bin/rockymem
 
@@ -17,3 +17,6 @@ doctor: build
 
 seed: build
 	./scripts/seed-demo.sh
+
+mcp-smoke: build
+	go run ./scripts/mcp_smoke.go

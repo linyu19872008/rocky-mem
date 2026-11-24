@@ -196,7 +196,7 @@ One binary, one daemon, one store.
 
 | | 单人（Solo） | 团队（Team） |
 |---|---|---|
-| DSN | `sqlite://<state>/rocky.db` | `postgres://…` |
+| DSN | `sqlite://<state>/rocky-mem.db` | `postgres://…` |
 | 监听 | loopback + token 文件 | 可配置 bind + Bearer token |
 | 用户 | 隐式 `app_user(1,'local')` | `api_token` 表 + `membership` |
 | 写并发 | 单写者队列 | 连接池 + 乐观锁 + advisory lock |

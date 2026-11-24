@@ -23,7 +23,7 @@ func Execute() {
 		Use:   "rockymem",
 		Short: "Local-first memory and experience service for coding agents",
 	}
-	root.PersistentFlags().StringVar(&flagDSN, "dsn", "", "sqlite://path (default: $ROCKYMEM_HOME/rocky.db)")
+	root.PersistentFlags().StringVar(&flagDSN, "dsn", "", "sqlite://path (default: $ROCKYMEM_HOME/rocky-mem.db)")
 
 	root.AddCommand(
 		cmdInit(), cmdMCP(), cmdSearch(), cmdShow(), cmdRemember(), cmdRecord(),
