@@ -27,7 +27,7 @@ func Execute() {
 
 	root.AddCommand(
 		cmdInit(), cmdMCP(), cmdSearch(), cmdShow(), cmdRemember(), cmdRecord(),
-		cmdFeedback(), cmdDoctor(), cmdVersion(),
+		cmdFeedback(), cmdAdoptVerify(), cmdDoctor(), cmdVersion(),
 	)
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)

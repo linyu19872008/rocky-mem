@@ -1,0 +1,27 @@
+---
+description: Force rocky-mem MCP usage for session context, search, record, and feedback
+alwaysApply: true
+---
+
+# rocky-mem MCP protocol
+
+You have access to the rocky-mem MCP server. Use it as the project experience layer.
+
+## Mandatory calls
+
+1. At the start of non-trivial work in this repo, call `mem_context` with `cwd` set to the workspace path.
+2. Before implementing or debugging a non-trivial task, call `mem_search` with a concrete query (error string, symptom, or goal).
+3. If a retrieved entry conflicts with what you observe, call `mem_feedback` with `outcome=wrong` and a `note`. Do not silently ignore it.
+4. After solving something reusable, call `mem_record` with mandatory `evidence`. Include `applies_when` and `invalid_when` when known. Do not claim success if status is `pending_review` or `rejected`.
+5. For standing preferences or constraints, call `mem_remember` (prefer a stable `mem_key`).
+
+## How to read results
+
+- Honour `## Preferences`.
+- For `## Applies`, check Applies when / Do not apply when.
+- Treat `## Do not use` as hard negatives (failed approaches).
+- Use `mem_get` when you need the full evidence chain.
+
+## Skip only when trivial
+
+Pure formatting, one-line renames, or answers fully present in already-open files may skip `mem_search`. Prefer still calling `mem_context` once per session.

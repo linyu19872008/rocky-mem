@@ -174,9 +174,21 @@ type Store interface {
 
 	BumpUse(ctx context.Context, kind string, id int64, now int64) error
 	InsertAudit(ctx context.Context, action, targetType string, targetID *int64, targetUID, detail string) error
+	ListAudit(ctx context.Context, sinceUnix int64, limit int) ([]AuditRow, error)
 
 	Doctor(ctx context.Context) (DoctorReport, error)
 	WithTx(ctx context.Context, fn func(Store) error) error
+}
+
+// AuditRow is one audit trail entry.
+type AuditRow struct {
+	ID         int64
+	TS         int64
+	Action     string
+	TargetType string
+	TargetID   *int64
+	TargetUID  string
+	Detail     string
 }
 
 // Feedback is a use / falsification signal.

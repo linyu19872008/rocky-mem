@@ -20,6 +20,9 @@ migration note.
   `docs/quickstart-p0a.md`. PostgreSQL and Web UI are not in this slice.
 - Project Cursor MCP config (`.cursor/mcp.json`) and `make mcp-smoke` stdio
   client that exercises all six tools.
+- **Tier-0 adoption gate:** `AGENTS.md`, `.cursor/rules/rocky-mem-mcp.mdc`,
+  `rockymem adopt-verify`, and `make verify-tier0` (protocol + workflow + audit
+  verdict with unit tests). See `docs/tier0-adoption.md`.
 - Design set: `design/DESIGN.md`, `design/schema.md`, `design/README.md`, and ADRs 0001–0006.
 - Dual-dialect schema: SQLite (FTS5 `trigram`) and PostgreSQL (`pg_trgm` GIN),
   with a materialised `search_doc` table replacing trigger-maintained indexes.

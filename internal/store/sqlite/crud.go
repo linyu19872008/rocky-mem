@@ -523,3 +523,31 @@ func (db *DB) InsertAudit(ctx context.Context, action, targetType string, target
 	)
 	return err
 }
+
+func (db *DB) ListAudit(ctx context.Context, sinceUnix int64, limit int) ([]store.AuditRow, error) {
+	if limit <= 0 {
+		limit = 200
+	}
+	rows, err := db.q().QueryContext(ctx, `
+		SELECT id, ts, action, target_type, target_id, target_uid, detail
+		FROM audit WHERE ts >= ? ORDER BY ts ASC, id ASC LIMIT ?`, sinceUnix, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []store.AuditRow
+	for rows.Next() {
+		var r store.AuditRow
+		var targetType, targetUID, detail sql.NullString
+		var targetID sql.NullInt64
+		if err := rows.Scan(&r.ID, &r.TS, &r.Action, &targetType, &targetID, &targetUID, &detail); err != nil {
+			return nil, err
+		}
+		r.TargetType = targetType.String
+		r.TargetUID = targetUID.String
+		r.Detail = detail.String
+		r.TargetID = int64Ptr(targetID)
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}

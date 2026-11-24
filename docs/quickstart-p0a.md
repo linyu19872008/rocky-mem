@@ -50,5 +50,6 @@ Manual absolute-path equivalent:
 2. `mem_search` returns a pack with `## Applies` / `## Do not use` and uids.
 3. `mem_get` returns evidence; `mem_feedback --outcome wrong` demotes trust to `contested`.
 4. `rockymem doctor` reports `search_doc_ok: true` and `schema_version: "2"`.
+5. Tier-0 adoption gate: `make verify-tier0` exits 0 (see `docs/tier0-adoption.md`).
 
 PostgreSQL, Web UI, and team auth remain out of scope.

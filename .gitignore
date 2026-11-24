@@ -10,4 +10,6 @@ coverage.out
 *.exe
 .cursor/*
 !.cursor/mcp.json
+!.cursor/rules/
+!.cursor/rules/**
 .codegraph/
