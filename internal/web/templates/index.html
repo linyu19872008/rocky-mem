@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>{{.Title}}</title>
+  <style>
+    :root { --bg:#f6f4ef; --ink:#1a1a1a; --muted:#5c5c5c; --line:#d8d2c4; --accent:#0b5fff; }
+    * { box-sizing: border-box; }
+    body { margin:0; font:15px/1.45 "IBM Plex Sans", "Segoe UI", sans-serif; background:linear-gradient(160deg,#f6f4ef,#ebe6da); color:var(--ink); min-height:100vh; }
+    header { padding:1.25rem 1.5rem; border-bottom:1px solid var(--line); display:flex; gap:1rem; align-items:baseline; }
+    header strong { font-size:1.15rem; letter-spacing:-0.02em; }
+    nav a { color:var(--muted); text-decoration:none; margin-right:0.75rem; }
+    nav a:hover { color:var(--accent); }
+    main { max-width:920px; margin:0 auto; padding:1.5rem; }
+    form { display:flex; gap:0.5rem; margin-bottom:1rem; }
+    input[type=text] { flex:1; padding:0.65rem 0.75rem; border:1px solid var(--line); border-radius:6px; background:#fff; font:inherit; }
+    button { padding:0.65rem 1rem; border:0; border-radius:6px; background:var(--accent); color:#fff; font:inherit; cursor:pointer; }
+    button.secondary { background:#fff; color:var(--ink); border:1px solid var(--line); }
+    pre { white-space:pre-wrap; background:#fff; border:1px solid var(--line); border-radius:8px; padding:1rem; min-height:12rem; }
+    .meta { color:var(--muted); font-size:0.85rem; margin-bottom:0.5rem; }
+    .err { color:#a40000; }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>rocky-mem</strong>
+    <nav><a href="/">Search</a><a href="/review">Review</a></nav>
+  </header>
+  <main>
+    <form id="f">
+      <input id="q" type="text" placeholder="Search memory / experience…" autofocus/>
+      <button type="submit">Search</button>
+    </form>
+    <div class="meta" id="meta"></div>
+    <pre id="out">Enter a query to debug retrieval.</pre>
+  </main>
+  <script>
+    const TOKEN = {{printf "%q" .Token}};
+    const out = document.getElementById('out');
+    const meta = document.getElementById('meta');
+    document.getElementById('f').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const q = document.getElementById('q').value.trim();
+      if (!q) return;
+      out.textContent = 'Searching…';
+      meta.textContent = '';
+      try {
+        const res = await fetch('/api/v1/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + TOKEN },
+          body: JSON.stringify({ query: q, include_proposed: true, budget_tokens: 1600 })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error((data.error && data.error.message) || res.statusText);
+        meta.textContent = (data.uids || []).length + ' hits · scope ' + JSON.stringify(data.scope_resolved || {});
+        out.textContent = data.pack || '(empty pack)';
+      } catch (err) {
+        out.className = 'err';
+        out.textContent = String(err);
+      }
+    });
+  </script>
+</body>
+</html>

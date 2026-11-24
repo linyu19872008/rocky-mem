@@ -13,10 +13,9 @@
 ---
 
 > **本译文的基准是 `README.md`；英文版为唯一真相，本页可能滞后。**
-> 当前进度：**Tier-1（SQLite + daemon）** — 6 个 MCP 工具、`rockymem serve`、
-> `review` / `reindex` / `purge` / `export` / `eval`，验收见 `make verify-tier1`
->（[docs/tier1.md](docs/tier1.md)、[docs/quickstart-p0a.md](docs/quickstart-p0a.md)）。
-> PostgreSQL 与 Web UI 尚未实现。
+> 当前进度：**Tier-2（SQLite + daemon + 最小 Web）** — 6 个 MCP、`serve`（检索/审核页）、
+> `backup`/`restore`、术语扩展与短查询 LIKE，验收 `make verify-tier2`
+>（[docs/tier2.md](docs/tier2.md)）。PostgreSQL / 完整 Web 仍属后续。
 > `design/DESIGN.md` 等设计文档本身就是中文；契约与工程文档为英文，划分见 [design/README.md](design/README.md)。
 
 ## 为什么做这个
@@ -86,13 +85,14 @@ agent 在开始工作前调用一次：
 
 - **MCP 服务** — 6 个工具。多窗口时先 `make serve`，MCP/CLI 用同一 DSN 走守护进程。
 - **两类知识** — 带稳定版本链的记忆；带可信度、冲突与证伪的经验台账。
-- **运维 CLI** — `review` / `reindex` / `purge` / `export` / `eval`。
+- **运维 CLI** — `review` / `reindex` / `purge` / `export` / `backup` / `restore` / `eval`。
+- **检索** — FTS5 + 短查询 LIKE + zh→en 术语扩展。
+- **最小 Web** — `serve` 上的检索调试页与审核队列。
 - **幂等写入** — remember/record 内容去重；memory `rev` CAS。
 
 **规划中：**
 
-- **Web 界面** — 审核队列、冲突裁定、文件投喂（写入前脱敏预览）。
-- **双语 UI + 术语扩展检索**。
+- **更完整 Web** — 冲突裁定、文件投喂脱敏预览、双语界面。
 - **PostgreSQL 团队模式** — 同一套 MCP，双方言 conformance。
 
 ## 本仓库快速开始

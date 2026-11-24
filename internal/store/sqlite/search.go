@@ -79,11 +79,23 @@ func (db *DB) SearchCandidates(ctx context.Context, query, kind string, limit in
 		return nil, nil
 	}
 
-	// Short CJK (≤2 runes): LIKE fallback — trigram needs ≥3 bytes typically.
-	if utf8.RuneCountInString(q) <= 2 && looksCJK(q) {
+	// Short queries (≤2 runes): LIKE is required — FTS5 trigram is unreliable here.
+	if utf8.RuneCountInString(q) <= 2 {
 		return db.searchLike(ctx, q, kind, limit)
 	}
 
+	fts, err := db.searchFTS(ctx, q, kind, limit)
+	if err != nil {
+		return db.searchLike(ctx, q, kind, limit)
+	}
+	if len(fts) > 0 {
+		return fts, nil
+	}
+	// Empty FTS → LIKE fallback (missed substrings / punctuation).
+	return db.searchLike(ctx, q, kind, limit)
+}
+
+func (db *DB) searchFTS(ctx context.Context, q, kind string, limit int) ([]store.Candidate, error) {
 	match := ftsMatchQuery(q)
 	sqlQ := `
 		SELECT sd.kind, sd.owner_id, bm25(search_doc_fts) AS score
@@ -100,8 +112,7 @@ func (db *DB) SearchCandidates(ctx context.Context, query, kind string, limit in
 
 	rows, err := db.q().QueryContext(ctx, sqlQ, args...)
 	if err != nil {
-		// FTS unavailable or bad query → LIKE fallback
-		return db.searchLike(ctx, q, kind, limit)
+		return nil, err
 	}
 	defer rows.Close()
 	var out []store.Candidate
@@ -110,7 +121,6 @@ func (db *DB) SearchCandidates(ctx context.Context, query, kind string, limit in
 		if err := rows.Scan(&c.Kind, &c.OwnerID, &c.Score); err != nil {
 			return nil, err
 		}
-		// bm25: lower is better; invert for "higher is better" ranking helpers
 		c.Score = -c.Score
 		out = append(out, c)
 	}
@@ -118,8 +128,8 @@ func (db *DB) SearchCandidates(ctx context.Context, query, kind string, limit in
 }
 
 func (db *DB) searchLike(ctx context.Context, q, kind string, limit int) ([]store.Candidate, error) {
-	pat := "%" + q + "%"
-	sqlQ := `SELECT kind, owner_id, 1.0 AS score FROM search_doc WHERE (title LIKE ? OR body LIKE ?)`
+	pat := "%" + escapeLike(q) + "%"
+	sqlQ := `SELECT kind, owner_id, 1.0 AS score FROM search_doc WHERE (title LIKE ? ESCAPE '\' OR body LIKE ? ESCAPE '\')`
 	args := []any{pat, pat}
 	if kind != "" {
 		sqlQ += ` AND kind=?`
@@ -143,8 +153,14 @@ func (db *DB) searchLike(ctx context.Context, q, kind string, limit int) ([]stor
 	return out, rows.Err()
 }
 
+func escapeLike(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, `%`, `\%`)
+	s = strings.ReplaceAll(s, `_`, `\_`)
+	return s
+}
+
 func ftsMatchQuery(q string) string {
-	// Escape FTS5 special chars; treat as literal phrase when possible.
 	q = strings.ReplaceAll(q, `"`, `""`)
 	parts := strings.Fields(q)
 	if len(parts) == 0 {
@@ -161,15 +177,6 @@ func ftsMatchQuery(q string) string {
 		b.WriteString(`"` + p + `"`)
 	}
 	return b.String()
-}
-
-func looksCJK(s string) bool {
-	for _, r := range s {
-		if r >= 0x4e00 && r <= 0x9fff {
-			return true
-		}
-	}
-	return false
 }
 
 func (db *DB) Doctor(ctx context.Context) (store.DoctorReport, error) {

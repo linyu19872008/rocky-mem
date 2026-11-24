@@ -12,6 +12,7 @@ import (
 	"github.com/rocky-mem/rocky-mem/internal/project"
 	"github.com/rocky-mem/rocky-mem/internal/redact"
 	"github.com/rocky-mem/rocky-mem/internal/store"
+	"github.com/rocky-mem/rocky-mem/internal/termmap"
 	"github.com/rocky-mem/rocky-mem/internal/textnorm"
 	"github.com/rocky-mem/rocky-mem/internal/uid"
 )
@@ -19,6 +20,7 @@ import (
 // Service is the application API used by CLI and MCP.
 type Service struct {
 	Store store.Store
+	Terms *termmap.Map // optional; nil disables bilingual expansion
 }
 
 // ScopeResolved is returned to callers after cwd → project mapping.

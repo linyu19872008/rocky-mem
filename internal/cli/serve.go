@@ -20,6 +20,7 @@ import (
 
 func cmdServe() *cobra.Command {
 	var bind string
+	var noWeb bool
 	c := &cobra.Command{
 		Use:   "serve",
 		Short: "Run the local daemon (exclusive store owner + /api/v1)",
@@ -59,9 +60,10 @@ func cmdServe() *cobra.Command {
 			}
 			defer daemon.ClearDiscovery(paths)
 
-			svc := &core.Service{Store: st}
+			svc := core.NewService(st)
+			handler := (&api.Server{Svc: svc, Token: token, EnableWeb: !noWeb}).Handler()
 			srv := &http.Server{
-				Handler:           (&api.Server{Svc: svc, Token: token}).Handler(),
+				Handler:           handler,
 				ReadHeaderTimeout: 5 * time.Second,
 			}
 
@@ -71,6 +73,9 @@ func cmdServe() *cobra.Command {
 			}()
 
 			fmt.Fprintf(os.Stderr, "rockymem serve listening on http://%s\n  db: %s\n  token file: %s\n", addr, path, paths.Token)
+			if !noWeb {
+				fmt.Fprintf(os.Stderr, "  web UI: http://%s/  (search)  http://%s/review\n", addr, addr)
+			}
 
 			sig := make(chan os.Signal, 1)
 			signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
@@ -89,5 +94,6 @@ func cmdServe() *cobra.Command {
 		},
 	}
 	c.Flags().StringVar(&bind, "bind", daemon.DefaultBind, "loopback listen address")
+	c.Flags().BoolVar(&noWeb, "no-web", false, "disable embedded search/review UI")
 	return c
 }

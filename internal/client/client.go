@@ -142,6 +142,14 @@ func (c *Client) ExportL1(ctx context.Context, format string) (*core.ExportResul
 	return &out, nil
 }
 
+func (c *Client) Backup(ctx context.Context, dest string) (*core.BackupResult, error) {
+	var out core.BackupResult
+	if err := c.post(ctx, "/api/v1/backup", map[string]string{"path": dest}, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
 func (c *Client) post(ctx context.Context, path string, in, out any) error {
 	_, err := c.do(ctx, http.MethodPost, path, in, out)
 	return err

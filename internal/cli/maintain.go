@@ -5,11 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/rocky-mem/rocky-mem/internal/config"
 	"github.com/rocky-mem/rocky-mem/internal/core"
+	"github.com/rocky-mem/rocky-mem/internal/daemon"
 	"github.com/rocky-mem/rocky-mem/internal/eval"
 	"github.com/spf13/cobra"
 )
@@ -189,6 +192,68 @@ func cmdExport() *cobra.Command {
 	}
 	c.Flags().StringVar(&format, "format", "md", "md|jsonl")
 	c.Flags().StringVar(&outPath, "out", "", "write to file instead of stdout")
+	return c
+}
+
+func cmdBackup() *cobra.Command {
+	var dest string
+	c := &cobra.Command{
+		Use:   "backup",
+		Short: "Snapshot the store with VACUUM INTO",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if dest == "" {
+				home, err := config.Home()
+				if err != nil {
+					return err
+				}
+				dest = core.DefaultBackupPath(filepath.Join(home, "backups"))
+			}
+			sess, err := openSession()
+			if err != nil {
+				return err
+			}
+			defer sess.Close()
+			out, err := sess.API.Backup(context.Background(), dest)
+			if err != nil {
+				return err
+			}
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetIndent("", "  ")
+			return enc.Encode(out)
+		},
+	}
+	c.Flags().StringVar(&dest, "out", "", "destination .db path (default: $ROCKYMEM_HOME/backups/rocky-mem-*.db)")
+	return c
+}
+
+func cmdRestore() *cobra.Command {
+	c := &cobra.Command{
+		Use:   "restore <snapshot.db>",
+		Short: "Replace the store with a snapshot (serve must be stopped)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			_, path, err := config.ParseDSN(flagDSN)
+			if err != nil {
+				return err
+			}
+			if base, tok, ok := daemon.ResolveURL(path); ok {
+				_ = base
+				_ = tok
+				return fmt.Errorf("refuse restore while serve appears running; stop serve first (discovery present)")
+			}
+			paths := daemon.PathsForDB(path)
+			lock, err := daemon.Acquire(paths.Lock)
+			if err != nil {
+				return err
+			}
+			defer lock.Unlock()
+			if err := core.RestoreFile(args[0], path); err != nil {
+				return err
+			}
+			fmt.Printf("restored %s → %s\n", args[0], path)
+			return nil
+		},
+	}
 	return c
 }
 

@@ -13,6 +13,9 @@ migration note.
 
 ### Added
 
+- **Tier-2:** `backup`/`restore` (`VACUUM INTO`), short-query LIKE hardening,
+  embedded term-map query expansion, minimal search/review web UI on `serve`
+  (`--no-web` to disable). See `docs/tier2.md` and `make verify-tier2`.
 - **Tier-1 operational slice:** `rockymem serve` (flock + discovery + bearer
   `/api/v1`), MCP/CLI daemon fallback, `review` / `reindex` / `purge` / `export` /
   `eval`, remember/record idempotency + rev CAS, retrieval corpus with

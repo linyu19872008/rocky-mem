@@ -183,6 +183,7 @@ type Store interface {
 	ListAudit(ctx context.Context, sinceUnix int64, limit int) ([]AuditRow, error)
 
 	Doctor(ctx context.Context) (DoctorReport, error)
+	Backup(ctx context.Context, destPath string) error
 	WithTx(ctx context.Context, fn func(Store) error) error
 }
 

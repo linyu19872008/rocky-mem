@@ -110,14 +110,51 @@ func (s *Service) Search(ctx context.Context, in SearchInput) (*PackResult, erro
 		kinds = []string{"memory", "experience"}
 	}
 
+	expanded := []struct {
+		Query  string
+		Weight float64
+	}{{Query: in.Query, Weight: 1.0}}
+	if s.Terms != nil {
+		expanded = nil
+		for _, e := range s.Terms.Expand(in.Query) {
+			expanded = append(expanded, struct {
+				Query  string
+				Weight float64
+			}{e.Query, e.Weight})
+		}
+	}
+
 	var mems []store.Memory
 	var exps []store.Experience
+	candByKind := map[string][]store.Candidate{}
 
 	for _, k := range kinds {
-		cands, err := s.Store.SearchCandidates(ctx, in.Query, k, 50)
-		if err != nil {
-			continue
+		merged := map[int64]float64{}
+		for _, eq := range expanded {
+			cands, err := s.Store.SearchCandidates(ctx, eq.Query, k, 50)
+			if err != nil {
+				continue
+			}
+			for _, c := range cands {
+				sc := c.Score * eq.Weight
+				if prev, ok := merged[c.OwnerID]; !ok || sc > prev {
+					merged[c.OwnerID] = sc
+				}
+			}
 		}
+		var list []store.Candidate
+		for id, sc := range merged {
+			list = append(list, store.Candidate{Kind: k, OwnerID: id, Score: sc})
+		}
+		sort.Slice(list, func(i, j int) bool { return list[i].Score > list[j].Score })
+		if len(list) > 50 {
+			list = list[:50]
+		}
+		candByKind[k] = list
+	}
+
+	for _, k := range kinds {
+		cands := candByKind[k]
 		switch k {
 		case "memory":
 			ids := ownerIDs(cands, "memory")

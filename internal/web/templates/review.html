@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>{{.Title}}</title>
+  <style>
+    :root { --bg:#f6f4ef; --ink:#1a1a1a; --muted:#5c5c5c; --line:#d8d2c4; --ok:#0a7a3e; --bad:#a40000; --accent:#0b5fff; }
+    body { margin:0; font:15px/1.45 "IBM Plex Sans", "Segoe UI", sans-serif; background:linear-gradient(160deg,#f6f4ef,#ebe6da); color:var(--ink); min-height:100vh; }
+    header { padding:1.25rem 1.5rem; border-bottom:1px solid var(--line); display:flex; gap:1rem; align-items:baseline; }
+    header strong { font-size:1.15rem; }
+    nav a { color:var(--muted); text-decoration:none; margin-right:0.75rem; }
+    main { max-width:920px; margin:0 auto; padding:1.5rem; }
+    .row { background:#fff; border:1px solid var(--line); border-radius:8px; padding:0.9rem 1rem; margin-bottom:0.6rem; display:flex; gap:1rem; justify-content:space-between; align-items:flex-start; }
+    .row h3 { margin:0 0 0.25rem; font-size:1rem; }
+    .row p { margin:0; color:var(--muted); font-size:0.85rem; }
+    .actions { display:flex; gap:0.4rem; flex-shrink:0; }
+    button { padding:0.4rem 0.7rem; border-radius:6px; border:1px solid var(--line); background:#fff; cursor:pointer; font:inherit; }
+    button.ok { background:var(--ok); color:#fff; border-color:var(--ok); }
+    button.bad { background:var(--bad); color:#fff; border-color:var(--bad); }
+    .empty, .err { color:var(--muted); }
+    .err { color:var(--bad); }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>rocky-mem</strong>
+    <nav><a href="/">Search</a><a href="/review">Review</a></nav>
+  </header>
+  <main>
+    <p class="empty" id="status">Loading…</p>
+    <div id="list"></div>
+  </main>
+  <script>
+    const TOKEN = {{printf "%q" .Token}};
+    const list = document.getElementById('list');
+    const status = document.getElementById('status');
+    async function api(path, body) {
+      const res = await fetch(path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + TOKEN },
+        body: JSON.stringify(body || {})
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error((data.error && data.error.message) || res.statusText);
+      return data;
+    }
+    async function refresh() {
+      status.textContent = 'Loading…';
+      list.innerHTML = '';
+      try {
+        const rows = await api('/api/v1/review/list', { trusts: ['proposed','contested'], limit: 50 });
+        if (!rows || !rows.length) {
+          status.textContent = 'No proposed/contested experiences.';
+          return;
+        }
+        status.textContent = rows.length + ' awaiting review';
+        for (const r of rows) {
+          const el = document.createElement('div');
+          el.className = 'row';
+          el.innerHTML = '<div><h3></h3><p></p></div><div class="actions"></div>';
+          el.querySelector('h3').textContent = '[' + r.trust + '] ' + r.title;
+          el.querySelector('p').textContent = r.uid + ' · ' + (r.exp_type || '') + ' · conf ' + (r.confidence ?? '');
+          const actions = el.querySelector('.actions');
+          const a = document.createElement('button'); a.className='ok'; a.textContent='Approve';
+          a.onclick = async () => { await api('/api/v1/review/approve', { uid: r.uid }); refresh(); };
+          const b = document.createElement('button'); b.className='bad'; b.textContent='Reject';
+          b.onclick = async () => { await api('/api/v1/review/reject', { uid: r.uid, reason: 'web-reject' }); refresh(); };
+          actions.append(a, b);
+          list.appendChild(el);
+        }
+      } catch (err) {
+        status.className = 'err';
+        status.textContent = String(err);
+      }
+    }
+    refresh();
+  </script>
+</body>
+</html>

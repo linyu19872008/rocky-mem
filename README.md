@@ -13,12 +13,11 @@ Memory is state. Experience is a ledger. Both are searchable in one call.
 
 ---
 
-> **Status: Tier-1 (SQLite + daemon).** Runnable Go binary with all six MCP tools
-> (`mem_context` / `mem_search` / `mem_get` / `mem_record` / `mem_remember` /
-> `mem_feedback`), `rockymem serve` (exclusive writer + `/api/v1`), CLI
-> `review` / `reindex` / `purge` / `export` / `eval`, and `make verify-tier1`.
-> PostgreSQL and the Web UI are not implemented yet — see
-> [docs/quickstart-p0a.md](docs/quickstart-p0a.md) and [docs/tier1.md](docs/tier1.md).
+> **Status: Tier-2 (SQLite + daemon + minimal web).** Six MCP tools,
+> `rockymem serve` (`/api/v1` + search/review UI), CLI
+> `review` / `reindex` / `purge` / `export` / `backup` / `restore` / `eval`,
+> term-map expansion, and `make verify-tier2`. PostgreSQL / full Web remain later —
+> see [docs/tier2.md](docs/tier2.md).
 
 ## Why
 
@@ -103,13 +102,14 @@ they fail from applying it outside its conditions.
   via discovery files next to the DB (same `--dsn`).
 - **Two knowledge types** — versioned memory with stable lineages; an experience
   ledger with trust states, conflict detection and falsification.
-- **CLI ops** — `review`, `reindex`, `purge`, `export`, `eval` (recall@10 gate).
+- **CLI ops** — `review`, `reindex`, `purge`, `export`, `backup`, `restore`, `eval`.
+- **Retrieval** — FTS5 trigram + short-query LIKE + zh→en term-map expansion.
+- **Minimal web** — search debug + review queue on `serve` (loopback).
 - **Idempotent writes** — remember/record content dedupe; memory `rev` CAS.
 
 **Planned:**
 
-- **Web UI** — review queues, conflict resolution, file ingest with redaction preview.
-- **Bilingual UI + term-map expansion** — EN/zh-CN chrome; curated cross-language retrieval.
+- **Richer Web UI** — conflict resolution, file ingest with redaction preview, i18n chrome.
 - **PostgreSQL team mode** — same MCP surface; conformance suite on both backends.
 
 ## Architecture at a glance

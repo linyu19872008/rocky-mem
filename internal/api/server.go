@@ -7,12 +7,14 @@ import (
 
 	"github.com/rocky-mem/rocky-mem/internal/core"
 	"github.com/rocky-mem/rocky-mem/internal/errs"
+	"github.com/rocky-mem/rocky-mem/internal/web"
 )
 
 // Server wraps core.Service with bearer-token auth.
 type Server struct {
-	Svc   *core.Service
-	Token string
+	Svc       *core.Service
+	Token     string
+	EnableWeb bool
 }
 
 func (s *Server) Handler() http.Handler {
@@ -31,6 +33,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/reindex", s.auth(s.handleReindex))
 	mux.HandleFunc("POST /api/v1/purge", s.auth(s.handlePurge))
 	mux.HandleFunc("POST /api/v1/export", s.auth(s.handleExport))
+	mux.HandleFunc("POST /api/v1/backup", s.auth(s.handleBackup))
+	if s.EnableWeb {
+		web.Mount(mux, s.Token)
+	}
 	return mux
 }
 
@@ -226,6 +232,22 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = json.NewDecoder(r.Body).Decode(&in)
 	out, err := s.Svc.ExportL1(r.Context(), in.Format)
+	if err != nil {
+		writeErr(w, statusOf(err), errs.As(err))
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+func (s *Server) handleBackup(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		Path string `json:"path"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+		writeErr(w, http.StatusBadRequest, errs.New(errs.InvalidRequest, err.Error(), nil))
+		return
+	}
+	out, err := s.Svc.Backup(r.Context(), in.Path)
 	if err != nil {
 		writeErr(w, statusOf(err), errs.As(err))
 		return

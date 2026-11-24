@@ -22,8 +22,8 @@ func Execute() {
 
 	root.AddCommand(
 		cmdInit(), cmdServe(), cmdMCP(), cmdSearch(), cmdShow(), cmdRemember(), cmdRecord(),
-		cmdFeedback(), cmdReview(), cmdReindex(), cmdPurge(), cmdExport(), cmdEval(),
-		cmdAdoptVerify(), cmdDoctor(), cmdVersion(),
+		cmdFeedback(), cmdReview(), cmdReindex(), cmdPurge(), cmdExport(), cmdBackup(), cmdRestore(),
+		cmdEval(), cmdAdoptVerify(), cmdDoctor(), cmdVersion(),
 	)
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -36,7 +36,7 @@ func cmdVersion() *cobra.Command {
 		Use:   "version",
 		Short: "Print version",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Println("rockymem 0.1.0-tier1")
+			fmt.Println("rockymem 0.1.0-tier2")
 		},
 	}
 }

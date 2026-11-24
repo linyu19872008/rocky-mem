@@ -1,4 +1,4 @@
-.PHONY: build test lint doctor seed serve mcp-smoke verify-tier0 verify-tier1
+.PHONY: build test lint doctor seed serve mcp-smoke verify-tier0 verify-tier1 verify-tier2
 
 BINARY ?= bin/rockymem
 DSN ?= sqlite://$(CURDIR)/.local/rocky-mem.db
@@ -37,3 +37,9 @@ verify-tier1: build
 	go test ./internal/daemon/ ./internal/api/ ./internal/core/ ./internal/eval/ ./internal/project/ ./internal/textnorm/ ./internal/adoption/
 	./$(BINARY) eval --min-recall 0.8
 	@echo "OK: tier-1 automated gate passed"
+
+# Tier-2 gate: backup + term-map + short-query + packages above.
+verify-tier2: build
+	go test ./internal/daemon/ ./internal/api/ ./internal/core/ ./internal/eval/ ./internal/termmap/ ./internal/project/ ./internal/textnorm/ ./internal/adoption/ ./internal/store/sqlite/
+	./$(BINARY) eval --min-recall 0.8
+	@echo "OK: tier-2 automated gate passed"

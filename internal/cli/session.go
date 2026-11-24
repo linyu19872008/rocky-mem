@@ -57,7 +57,7 @@ func openSession() (*session, error) {
 		_ = lock.Unlock()
 		return nil, err
 	}
-	svc := &core.Service{Store: st}
+	svc := core.NewService(st)
 	return &session{
 		API:   svc,
 		Store: st,

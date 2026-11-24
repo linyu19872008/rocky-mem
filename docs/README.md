@@ -18,6 +18,7 @@ not by importance; see [`../design/README.md`](../design/README.md).
 | [i18n-glossary.md](i18n-glossary.md) | Canonical term translations, plus the alternatives that were rejected and why | Normative for translators |
 | [tier0-adoption.md](tier0-adoption.md) | Agent adoption protocol and live checklist | Process |
 | [tier1.md](tier1.md) | Daemon, maintain CLI, idempotency, retrieval eval gate | Process |
+| [tier2.md](tier2.md) | Backup, term-map, LIKE, minimal web | Process |
 | [quickstart-p0a.md](quickstart-p0a.md) | Runnable P0 SQLite slice quickstart | Guide |
 
 ## Rules for this directory
