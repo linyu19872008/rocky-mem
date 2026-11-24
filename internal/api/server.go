@@ -24,6 +24,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/stats", s.auth(s.handleStats))
 	mux.HandleFunc("POST /api/v1/context", s.auth(s.handleContext))
 	mux.HandleFunc("POST /api/v1/search", s.auth(s.handleSearch))
+	mux.HandleFunc("POST /api/v1/browse", s.auth(s.handleBrowse))
 	mux.HandleFunc("POST /api/v1/get", s.auth(s.handleGet))
 	mux.HandleFunc("POST /api/v1/remember", s.auth(s.handleRemember))
 	mux.HandleFunc("POST /api/v1/record", s.auth(s.handleRecord))
@@ -87,6 +88,22 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out, err := s.Svc.Search(r.Context(), in)
+	if err != nil {
+		writeErr(w, statusOf(err), errs.As(err))
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+func (s *Server) handleBrowse(w http.ResponseWriter, r *http.Request) {
+	var in core.BrowseInput
+	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+		if err.Error() != "EOF" {
+			writeErr(w, http.StatusBadRequest, errs.New(errs.InvalidRequest, err.Error(), nil))
+			return
+		}
+	}
+	out, err := s.Svc.Browse(r.Context(), in)
 	if err != nil {
 		writeErr(w, statusOf(err), errs.As(err))
 		return

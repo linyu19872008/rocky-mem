@@ -8,6 +8,7 @@ import { EntryPage } from "./pages/EntryPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { OverviewPage } from "./pages/OverviewPage";
 import { IngestPage } from "./pages/IngestPage";
+import { LibraryPage } from "./pages/LibraryPage";
 
 export function App() {
   return (
@@ -17,6 +18,7 @@ export function App() {
           <Routes>
             <Route element={<AppShell />}>
               <Route index element={<SearchPage />} />
+              <Route path="library" element={<LibraryPage />} />
               <Route path="review" element={<ReviewPage />} />
               <Route path="entry" element={<EntryPage />} />
               <Route path="settings" element={<SettingsPage />} />

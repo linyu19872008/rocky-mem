@@ -332,6 +332,23 @@
   border-radius: var(--radius);
   padding: 0.85rem 1rem;
   box-shadow: var(--shadow);
+  text-align: start;
+  color: inherit;
+  font: inherit;
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+}
+a.stat-card {
+  text-decoration: none;
+}
+.stat-card.is-link {
+  cursor: pointer;
+  transition: border-color var(--ease), box-shadow var(--ease);
+}
+.stat-card.is-link:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent);
 }
 .stat-card .label {
   color: var(--muted);

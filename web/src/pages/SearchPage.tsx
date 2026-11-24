@@ -74,7 +74,14 @@ export function SearchPage() {
         </Button>
       </form>
       {err ? <p className="err">{err}</p> : null}
-      {!searched && !err ? <p className="meta">{intl.formatMessage({ id: "search.empty" })}</p> : null}
+      {!searched && !err ? (
+        <p className="meta">
+          {intl.formatMessage({ id: "search.empty" })}{" "}
+          <Link to="/library">
+            <FormattedMessage id="search.browseLibrary" />
+          </Link>
+        </p>
+      ) : null}
       {searched ? (
         <p className="meta">
           <FormattedMessage id="search.hits" values={{ count: hits.length }} />

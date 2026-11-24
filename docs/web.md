@@ -33,18 +33,19 @@ pnpm --dir web dev  # terminal 2 — proxies /api to :7432
 ## Layout
 
 - **Top bar:** brand, `v0.1.x` pill, EN/中文 segmented, theme segmented, Local pill.
-- **Side nav:** Work (Search, Review, Entry) · Capture (Ingest) · System (Overview, Settings).
+- **Side nav:** Work (Search, Library, Review, Entry) · Capture (Ingest) · System (Overview, Settings).
 - **Page body:** `PageHeader` (title + actions) → optional `StatStrip` / `FilterChips` → content cards.
 
 ## Routes
 
 | Path | Status |
 |---|---|
-| `/` | Search |
+| `/` | Search (retrieval debugger); empty state links to Library |
+| `/library` | Browse memories + experiences via `POST /api/v1/browse` (no query required) |
 | `/review` | Review queue with KPI + counted filter chips |
 | `/entry` | Entry detail + conflict compare; approve/reject in page header |
 | `/settings` | Preferences / doctor / ops cards |
-| `/overview` | Real KPIs via `GET /api/v1/stats` + recent pending list |
+| `/overview` | KPIs (clickable → Library filters) + recent library + pending review |
 | `/ingest` | Two-phase ingest: drop/paste → **extract** (plain/docx/xlsx/pdf text) → redact preview → confirm |
 
 ## Locale resolution

@@ -66,6 +66,9 @@ export function AppShell() {
           <NavLink to="/" end onClick={closeNav}>
             <FormattedMessage id="nav.search" />
           </NavLink>
+          <NavLink to="/library" onClick={closeNav}>
+            <FormattedMessage id="nav.library" />
+          </NavLink>
           <NavLink to="/review" onClick={closeNav}>
             <FormattedMessage id="nav.review" />
           </NavLink>
