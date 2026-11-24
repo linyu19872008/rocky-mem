@@ -6,7 +6,7 @@ import { ThemeToggle } from "./ThemeToggle";
 import { Button } from "./Button";
 import "./ui.css";
 
-const APP_VERSION = "0.1.1";
+const APP_VERSION = "0.1.2";
 
 export function AppShell() {
   const { pathname } = useLocation();

@@ -11,6 +11,8 @@ migration note.
 
 ## [Unreleased]
 
+## [0.1.2] — 2026-11-24
+
 ### Added
 
 - **Record form:** Web `/record` for hand-written experiences with quote evidence.
@@ -19,6 +21,11 @@ migration note.
   under `cwd` (docs/mcp-tools.md updated).
 - **Eval / term-map thickening:** more corpus entries + zh/en short queries;
   extra seed terms (知识库/投喂/脱敏/…).
+
+### Changed
+
+- Version unified to **0.1.2** (CLI / MCP / Web pill).
+- README shipped list includes `/record`.
 
 ## [0.1.1] — 2026-11-24
 
