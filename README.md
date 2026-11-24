@@ -13,11 +13,10 @@ Memory is state. Experience is a ledger. Both are searchable in one call.
 
 ---
 
-> **Status: P0a (SQLite vertical slice).** A runnable Go binary exposes MCP/CLI
-> for `mem_context` / `mem_search` / `mem_record` / `mem_remember` against local
-> SQLite. PostgreSQL and the Web UI are not implemented yet — see
-> [docs/quickstart-p0a.md](docs/quickstart-p0a.md). Design docs remain the
-> source of truth for the full roadmap (`design/DESIGN.md`, Chinese).
+> **Status: P0 (SQLite slice).** Runnable Go binary with all six MCP tools
+> (`mem_context` / `mem_search` / `mem_get` / `mem_record` / `mem_remember` /
+> `mem_feedback`) against local SQLite. PostgreSQL and the Web UI are not
+> implemented yet — see [docs/quickstart-p0a.md](docs/quickstart-p0a.md).
 
 ## Why
 

@@ -13,7 +13,7 @@
 ---
 
 > **本译文的基准是 `README.md`；英文版为唯一真相，本页可能滞后。**
-> 项目已进入 **P0a 实现**：SQLite + MCP/CLI 垂直切片可运行（见 [docs/quickstart-p0a.md](docs/quickstart-p0a.md)）。PostgreSQL 与 Web 尚未实现。
+> 项目已进入 **P0 实现**：SQLite + 全部 6 个 MCP 工具可运行（见 [docs/quickstart-p0a.md](docs/quickstart-p0a.md)）。PostgreSQL 与 Web 尚未实现。
 > `design/DESIGN.md` 等设计文档本身就是中文；契约与工程文档为英文，划分见 [design/README.md](design/README.md)。
 
 ## 为什么做这个
