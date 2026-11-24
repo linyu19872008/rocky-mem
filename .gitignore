@@ -1,0 +1,12 @@
+/bin/
+/.local/
+*.db
+*.db-*
+dist/
+web/node_modules/
+web/dist/
+.DS_Store
+coverage.out
+*.exe
+.cursor/
+.codegraph/

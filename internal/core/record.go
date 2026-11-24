@@ -1,0 +1,239 @@
+package core
+
+import (
+	"context"
+	"strings"
+
+	"github.com/rocky-mem/rocky-mem/internal/errs"
+	"github.com/rocky-mem/rocky-mem/internal/store"
+	"github.com/rocky-mem/rocky-mem/internal/textnorm"
+	"github.com/rocky-mem/rocky-mem/internal/uid"
+)
+
+// EvidenceIn is one evidence item on mem_record.
+type EvidenceIn struct {
+	Type string // quote|commit|path|url|session
+	Ref  string
+	Text string
+}
+
+// RecordInput matches mem_record.
+type RecordInput struct {
+	Title       string
+	ExpType     string
+	Symptom     string
+	RootCause   string
+	Fix         string
+	AppliesWhen string
+	InvalidWhen string
+	Outcome     string
+	Confidence  float64
+	Scope       string
+	ScopeRef    string
+	Evidence    []EvidenceIn
+	Tags        []string
+	Cwd         string
+	Lang        string
+}
+
+// RecordResult is the write acknowledgement.
+type RecordResult struct {
+	UID            string         `json:"uid"`
+	Rev            int            `json:"rev"`
+	Status         string         `json:"status"`
+	Trust          string         `json:"trust"`
+	ReviewRequired bool           `json:"review_required"`
+	Conflict       map[string]any `json:"conflict,omitempty"`
+	Warnings       []string       `json:"warnings,omitempty"`
+	Reason         string         `json:"reason,omitempty"`
+}
+
+// Record writes an experience claim.
+func (s *Service) Record(ctx context.Context, in RecordInput) (*RecordResult, error) {
+	if strings.TrimSpace(in.Title) == "" || in.ExpType == "" {
+		return nil, errs.New(errs.FieldRequired, "title and exp_type are required", nil)
+	}
+	if len(in.Evidence) < 1 {
+		return nil, errs.New(errs.EvidenceRequired, "at least 1 evidence item is required for an experience entry", map[string]any{"min": 1})
+	}
+	if in.Outcome == "" {
+		in.Outcome = "unknown"
+	}
+	if in.Confidence == 0 {
+		in.Confidence = 0.5
+	}
+	if in.Lang == "" {
+		in.Lang = "und"
+	}
+
+	proj, resolved, err := s.resolveProject(ctx, in.Cwd)
+	if err != nil && in.Cwd != "" {
+		// Soft: fall back to session rather than failing agent writes in non-git dirs.
+		resolved = &ScopeResolved{Scope: "session", ScopeRef: "default"}
+		err = nil
+	}
+	scope, ref := writeScope(in.Scope, in.ScopeRef, resolved)
+
+	var result *RecordResult
+	err = s.Store.WithTx(ctx, func(st store.Store) error {
+		svc := &Service{Store: st}
+		actor, err := st.EnsureLocalUser(ctx)
+		if err != nil {
+			return err
+		}
+		var pid *int64
+		if proj != nil {
+			pid = &proj.ID
+		}
+
+		var warnings []string
+		var rawIDs []int64
+		for _, ev := range in.Evidence {
+			text := ev.Text
+			srcRef := ev.Ref
+			channel := "agent"
+			role := "support"
+			switch ev.Type {
+			case "quote":
+				if text == "" {
+					warnings = append(warnings, "quote evidence missing text")
+					continue
+				}
+				channel = "agent"
+			case "commit":
+				channel = "git"
+				if text == "" {
+					text = "commit " + ev.Ref
+				}
+			case "path":
+				channel = "file"
+				if text == "" {
+					text = "path " + ev.Ref
+				}
+			case "url":
+				channel = "web"
+				if text == "" {
+					text = ev.Ref
+				}
+			case "session":
+				channel = "transcript"
+				if text == "" {
+					text = "session " + ev.Ref
+				}
+			default:
+				warnings = append(warnings, "unknown evidence type "+ev.Type)
+				role = "context"
+				if text == "" {
+					text = ev.Ref
+				}
+			}
+			if strings.TrimSpace(text) == "" {
+				warnings = append(warnings, "empty evidence skipped")
+				continue
+			}
+			raw, err := svc.putRaw(ctx, text, channel, srcRef, in.Cwd, pid)
+			if err != nil {
+				if e, ok := err.(*errs.E); ok && e.Code == errs.PolicyRejected {
+					return err
+				}
+				warnings = append(warnings, err.Error())
+				continue
+			}
+			rawIDs = append(rawIDs, raw.ID)
+			_ = role
+		}
+		if len(rawIDs) == 0 {
+			return errs.New(errs.EvidenceRequired, "no evidence could be persisted", map[string]any{"min": 1})
+		}
+
+		symptom := textnorm.NFC(in.Symptom)
+		fix := textnorm.NFC(in.Fix)
+		e := store.Experience{
+			UID: uid.Experience(), ExpType: in.ExpType, Scope: scope, ScopeRef: ref,
+			Title: textnorm.NFC(in.Title), Symptom: symptom,
+			SymptomKey: textnorm.SymptomKey(symptom, in.Lang),
+			RootCause: textnorm.NFC(in.RootCause), FixMD: fix,
+			FixHash: textnorm.Hash(fix), AppliesWhen: textnorm.NFC(in.AppliesWhen),
+			InvalidWhen: textnorm.NFC(in.InvalidWhen), Outcome: in.Outcome,
+			Confidence: in.Confidence, Lang: in.Lang, Sensitivity: 2, ActorID: &actor,
+		}
+
+		trust, status, reason, review := qualityGate(e, len(rawIDs))
+		e.Trust = trust
+
+		var conflict map[string]any
+		if e.SymptomKey != "" {
+			peers, err := st.FindExperiencesBySymptomKey(ctx, e.SymptomKey)
+			if err != nil {
+				return err
+			}
+			var conflicting []store.Experience
+			for _, p := range peers {
+				if p.FixHash != "" && e.FixHash != "" && p.FixHash != e.FixHash {
+					conflicting = append(conflicting, p)
+				}
+			}
+			if len(conflicting) > 0 {
+				group := uid.Conflict()
+				e.Trust = "contested"
+				e.ConflictGroup = group
+				trust = "contested"
+				status = "published"
+				review = false
+				reason = "same symptom_key, different fix_hash"
+				ids := make([]int64, 0, len(conflicting)+1)
+				uids := make([]string, 0, len(conflicting)+1)
+				for _, p := range conflicting {
+					ids = append(ids, p.ID)
+					uids = append(uids, p.UID)
+				}
+				// insert first then mark all including new
+				inserted, err := st.InsertExperience(ctx, e)
+				if err != nil {
+					return err
+				}
+				e = inserted
+				ids = append(ids, e.ID)
+				uids = append(uids, e.UID)
+				if err := st.MarkContested(ctx, ids, group); err != nil {
+					return err
+				}
+				conflict = map[string]any{"group": group, "uids": uids, "reason": reason}
+				goto afterInsert
+			}
+		}
+
+		{
+			inserted, err := st.InsertExperience(ctx, e)
+			if err != nil {
+				return err
+			}
+			e = inserted
+		}
+
+	afterInsert:
+		for _, rid := range rawIDs {
+			if _, err := st.InsertEvidence(ctx, store.Evidence{
+				OwnerType: "experience", OwnerID: e.ID, RawID: rid, Role: "support",
+			}); err != nil {
+				return err
+			}
+		}
+		if err := st.WriteSearchDoc(ctx, store.SearchDoc{
+			Kind: "experience", OwnerID: e.ID, Lang: e.Lang, Title: e.Title, Body: experienceSearchBody(e),
+		}); err != nil {
+			return err
+		}
+		if len(in.Tags) > 0 {
+			_ = st.SetTags(ctx, "experience", e.ID, in.Tags)
+		}
+		_ = st.InsertAudit(ctx, "write", "experience", &e.ID, e.UID, status)
+
+		result = &RecordResult{
+			UID: e.UID, Rev: e.Rev, Status: status, Trust: trust,
+			ReviewRequired: review, Conflict: conflict, Warnings: warnings, Reason: reason,
+		}
+		return nil
+	})
+	return result, err
+}

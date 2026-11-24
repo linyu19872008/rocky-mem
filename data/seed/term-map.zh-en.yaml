@@ -1,0 +1,172 @@
+# Seed term map: zh-CN → en
+#
+# Used by query expansion (docs/i18n.md §6.3). Loaded into the `term` table with
+# `source = 'seed'`. Each `zh` entry expands to every listed `en` term at the
+# default weight (0.7), so original-language hits outrank bridged ones.
+#
+# Quality bar for contributions:
+#   1. The mapping must be unambiguous in an engineering context. If a term has
+#      two plausible English meanings, either pick the one this project means, or
+#      leave it out. "内存" is deliberately absent: memory or RAM is decided by
+#      context, and a wrong mapping is worse than no mapping.
+#   2. Prefer the term an English-speaking engineer would actually type into a
+#      search box, not a dictionary translation.
+#   3. Multi-word entries are fine; they are matched as phrases.
+#
+# Adding a term requires: this file, a test case using a real query, and review.
+
+version: 1
+direction: zh-CN -> en
+
+entries:
+  # --- hardware / GPU ---
+  - zh: 显存
+    en: [VRAM, "video memory", "GPU memory"]
+    domain: gpu
+  - zh: 显卡
+    en: [GPU, "graphics card"]
+    domain: gpu
+  - zh: 显存不足
+    en: ["out of memory", OOM, "CUDA OOM"]
+    domain: gpu
+  - zh: 驱动
+    en: [driver]
+    domain: gpu
+
+  # --- deployment / infra ---
+  - zh: 灰度发布
+    en: [canary, "canary release", "gradual rollout"]
+    domain: deploy
+  - zh: 滚动更新
+    en: ["rolling update", "rolling upgrade", rollout]
+    domain: deploy
+  - zh: 回滚
+    en: [rollback, revert]
+    domain: deploy
+  - zh: 热更新
+    en: ["hot reload", "hot update", "config reload"]
+    domain: config
+  - zh: 配置
+    en: [config, configuration, ConfigMap]
+    domain: config
+  - zh: 副本
+    en: [replica]
+    domain: deploy
+  - zh: 探针
+    en: [probe, livenessProbe, readinessProbe]
+    domain: deploy
+  - zh: 容器
+    en: [container, Pod]
+    domain: deploy
+  - zh: 节点
+    en: [node]
+    domain: deploy
+
+  # --- failure modes ---
+  - zh: 崩溃
+    en: [crash, "core dump", segfault]
+    domain: general
+  - zh: 内存溢出
+    en: ["out of memory", OOM]
+    domain: general
+  - zh: 死锁
+    en: [deadlock]
+    domain: concurrency
+  - zh: 泄漏
+    en: [leak, "memory leak", "connection leak"]
+    domain: general
+  - zh: 超时
+    en: [timeout, "timed out"]
+    domain: network
+  - zh: 断连
+    en: ["connection reset", "connection refused", disconnect]
+    domain: network
+  - zh: 限流
+    en: ["rate limit", throttling]
+    domain: network
+  - zh: 熔断
+    en: ["circuit breaker"]
+    domain: network
+  - zh: 重试
+    en: [retry, backoff]
+    domain: general
+
+  # --- data / storage ---
+  - zh: 索引
+    en: [index, indexing]
+    domain: database
+  - zh: 慢查询
+    en: ["slow query"]
+    domain: database
+  - zh: 全表扫描
+    en: ["full scan", "full table scan"]
+    domain: database
+  - zh: 迁移
+    en: [migration, migrate]
+    domain: database
+  - zh: 备份
+    en: [backup, snapshot]
+    domain: storage
+  - zh: 分片
+    en: [shard, sharding, chunk]
+    domain: storage
+
+  # --- build / tooling ---
+  - zh: 依赖
+    en: [dependency, dependencies]
+    domain: build
+  - zh: 构建
+    en: [build, compile]
+    domain: build
+  - zh: 缓存
+    en: [cache, caching]
+    domain: build
+  - zh: 包管理器
+    en: ["package manager", pnpm, npm, yarn]
+    domain: tooling
+  - zh: 锁文件
+    en: ["lock file", lockfile]
+    domain: tooling
+  - zh: 单元测试
+    en: ["unit test", pytest, "test suite"]
+    domain: testing
+  - zh: 冒烟测试
+    en: ["smoke test"]
+    domain: testing
+  - zh: 回归测试
+    en: ["regression test"]
+    domain: testing
+
+  # --- agent / model ---
+  - zh: 工具调用
+    en: ["tool call", "tool use", "function call"]
+    domain: agent
+  - zh: 上下文
+    en: [context, "context window"]
+    domain: agent
+  - zh: 提示词
+    en: [prompt, "system prompt"]
+    domain: agent
+  - zh: 向量
+    en: [vector, embedding]
+    domain: agent
+  - zh: 检索
+    en: [retrieval, search]
+    domain: agent
+
+  # --- process / knowledge ---
+  - zh: 复盘
+    en: [postmortem, retro, "incident review"]
+    domain: process
+  - zh: 根因
+    en: ["root cause", "root cause analysis", RCA]
+    domain: process
+  - zh: 临时方案
+    en: [workaround]
+    domain: process
+  - zh: 技术债
+    en: ["tech debt", "technical debt"]
+    domain: process
+  - zh: 约定
+    en: [convention, guideline]
+    domain: process
