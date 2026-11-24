@@ -47,6 +47,17 @@ func NewToken() (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
+// LoadOrCreateToken reuses a non-empty token file so serve restarts keep the
+// same bearer for long-lived MCP/CLI clients (Cursor keeps stdio mcp alive).
+func LoadOrCreateToken(tokenPath string) (string, error) {
+	if b, err := os.ReadFile(tokenPath); err == nil {
+		if tok := strings.TrimSpace(string(b)); tok != "" {
+			return tok, nil
+		}
+	}
+	return NewToken()
+}
+
 func WriteDiscovery(p Paths, addr, token string) error {
 	if err := os.MkdirAll(filepath.Dir(p.Addr), 0o700); err != nil {
 		return err
@@ -57,9 +68,10 @@ func WriteDiscovery(p Paths, addr, token string) error {
 	return os.WriteFile(p.Token, []byte(token+"\n"), 0o600)
 }
 
+// ClearDiscovery removes the live address file. The token file is kept so the
+// next serve can reuse it (see LoadOrCreateToken).
 func ClearDiscovery(p Paths) {
 	_ = os.Remove(p.Addr)
-	_ = os.Remove(p.Token)
 }
 
 func ReadDiscovery(p Paths) (addr, token string, err error) {
@@ -80,12 +92,22 @@ func ReadDiscovery(p Paths) (addr, token string, err error) {
 }
 
 // ResolveURL returns base URL for API client: env wins, else discovery file.
+// Env URL without a token (env or token file) is treated as unresolved so
+// callers do not dial with an empty bearer.
 func ResolveURL(dbPath string) (baseURL, token string, ok bool) {
+	p := PathsForDB(dbPath)
 	if u := strings.TrimSpace(os.Getenv(EnvURL)); u != "" {
 		tok := strings.TrimSpace(os.Getenv(EnvToken))
+		if tok == "" {
+			if tb, err := os.ReadFile(p.Token); err == nil {
+				tok = strings.TrimSpace(string(tb))
+			}
+		}
+		if tok == "" {
+			return "", "", false
+		}
 		return strings.TrimRight(u, "/"), tok, true
 	}
-	p := PathsForDB(dbPath)
 	addr, tok, err := ReadDiscovery(p)
 	if err != nil {
 		return "", "", false

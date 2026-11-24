@@ -33,12 +33,14 @@ func openSession() (*session, error) {
 		return nil, err
 	}
 	if base, tok, ok := daemon.ResolveURL(path); ok {
-		c := client.New(base, tok)
-		ctx, cancel := context.WithTimeout(context.Background(), client.DialTimeout)
-		err := c.Health(ctx)
-		cancel()
-		if err == nil {
-			return &session{API: c, Remote: true, close: func() error { return nil }}, nil
+		if sess := dialDaemon(base, tok); sess != nil {
+			return sess, nil
+		}
+		// Token may have rotated under a long-lived MCP process; re-read once.
+		if base2, tok2, ok2 := daemon.ResolveURL(path); ok2 && (base2 != base || tok2 != tok) {
+			if sess := dialDaemon(base2, tok2); sess != nil {
+				return sess, nil
+			}
 		}
 	}
 
@@ -70,4 +72,14 @@ func openSession() (*session, error) {
 			return err2
 		},
 	}, nil
+}
+
+func dialDaemon(base, tok string) *session {
+	c := client.New(base, tok)
+	ctx, cancel := context.WithTimeout(context.Background(), client.DialTimeout)
+	defer cancel()
+	if err := c.Health(ctx); err != nil {
+		return nil
+	}
+	return &session{API: c, Remote: true, close: func() error { return nil }}
 }

@@ -45,7 +45,7 @@ func cmdServe() *cobra.Command {
 				return err
 			}
 
-			token, err := daemon.NewToken()
+			token, err := daemon.LoadOrCreateToken(paths.Token)
 			if err != nil {
 				return err
 			}
@@ -80,7 +80,7 @@ func cmdServe() *cobra.Command {
 				fmt.Fprintf(os.Stderr, "    %s/review\n", baseURL)
 				fmt.Fprintf(os.Stderr, "    %s/entry\n", baseURL)
 				fmt.Fprintf(os.Stderr, "    %s/settings\n", baseURL)
-				fmt.Fprintf(os.Stderr, "    %s/overview  (stub)\n", baseURL)
+				fmt.Fprintf(os.Stderr, "    %s/overview\n", baseURL)
 				fmt.Fprintf(os.Stderr, "    %s/ingest   (stub)\n", baseURL)
 			}
 
