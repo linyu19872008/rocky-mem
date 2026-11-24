@@ -7,7 +7,7 @@ with one exclusive writer when multiple Cursor windows are open.
 
 ```bash
 make build
-./bin/rockymem version   # 0.1.0-tier1
+./bin/rockymem version   # 0.1.1
 ```
 
 ## Initialise and seed
@@ -65,4 +65,5 @@ make verify-tier1
 4. With `make serve` up, a second `rockymem --dsn … mcp` / CLI call does not take the DB lock.
 5. `make verify-tier1` exits 0 (see `docs/tier1.md`).
 
-PostgreSQL, Web UI, and team auth remain out of scope.
+PostgreSQL and team auth remain out of scope. Web SPA is available via `make serve`
+(see `docs/web.md`).

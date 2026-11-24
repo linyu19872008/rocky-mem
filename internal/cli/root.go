@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/rocky-mem/rocky-mem/internal/version"
 	"github.com/spf13/cobra"
 )
 
@@ -36,7 +37,7 @@ func cmdVersion() *cobra.Command {
 		Use:   "version",
 		Short: "Print version",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Println("rockymem 0.1.0-tier2")
+			fmt.Println("rockymem " + version.Version)
 		},
 	}
 }

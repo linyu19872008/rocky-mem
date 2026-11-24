@@ -24,6 +24,7 @@ const (
 	ProjectUnresolved Code = "ERR_PROJECT_UNRESOLVED"
 	PolicyRejected    Code = "ERR_POLICY_REJECTED"
 	FTSUnavailable    Code = "ERR_FTS_UNAVAILABLE"
+	NotImplemented    Code = "ERR_NOT_IMPLEMENTED"
 	DBError           Code = "ERR_DB"
 	Internal          Code = "ERR_SYS_INTERNAL"
 )

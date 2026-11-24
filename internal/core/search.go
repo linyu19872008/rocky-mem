@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rocky-mem/rocky-mem/internal/errs"
 	"github.com/rocky-mem/rocky-mem/internal/store"
 	"github.com/rocky-mem/rocky-mem/internal/uid"
 )
@@ -141,6 +142,16 @@ func (s *Service) Search(ctx context.Context, in SearchInput) (*PackResult, erro
 	candByKind := map[string][]store.Candidate{}
 
 	for _, k := range kinds {
+		switch k {
+		case "chunk", "source":
+			return nil, errs.New(errs.NotImplemented, "search kind not available yet", map[string]any{
+				"feature": "kinds:" + k,
+			})
+		case "memory", "experience":
+			// ok
+		default:
+			return nil, errs.New(errs.FieldInvalid, "unknown search kind", map[string]any{"kind": k})
+		}
 		merged := map[int64]float64{}
 		for _, eq := range expanded {
 			cands, err := s.Store.SearchCandidates(ctx, eq.Query, k, 50)

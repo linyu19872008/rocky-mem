@@ -6,7 +6,7 @@ import { ThemeToggle } from "./ThemeToggle";
 import { Button } from "./Button";
 import "./ui.css";
 
-const APP_VERSION = "0.1.0";
+const APP_VERSION = "0.1.1";
 
 export function AppShell() {
   const { pathname } = useLocation();
@@ -80,6 +80,9 @@ export function AppShell() {
           <div className="nav-group-label">
             <FormattedMessage id="nav.group.ingest" />
           </div>
+          <NavLink to="/remember" onClick={closeNav}>
+            <FormattedMessage id="nav.remember" />
+          </NavLink>
           <NavLink to="/ingest" onClick={closeNav}>
             <FormattedMessage id="nav.ingest" />
           </NavLink>

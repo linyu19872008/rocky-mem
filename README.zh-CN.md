@@ -13,10 +13,10 @@
 ---
 
 > **本译文的基准是 `README.md`；英文版为唯一真相，本页可能滞后。**
-> 当前进度：**Tier-3 + Web SPA 骨架** — Cookie 鉴权的 React UI（中英、明暗主题）、
-> `store/conformance`、备份与术语扩展；验收 `make verify-tier3`
->（[docs/tier3.md](docs/tier3.md)、[docs/web.md](docs/web.md)）。已打 tag `v0.1.0-tier3`。
-> PostgreSQL / 投喂仍属后续。`design/DESIGN.md` 等为中文；契约与工程文档为英文，
+> 当前进度：**Solo 可用 — v0.1.1** — Cookie 鉴权 React UI（知识库 / 记住 / 投喂 / 审核）、
+> 文件投喂、冲突裁定、备份与术语扩展；验收 `make verify-tier3`
+>（[docs/web.md](docs/web.md)、[docs/ingest.md](docs/ingest.md)）。
+> **PostgreSQL / 团队模式仍属后续。** `design/DESIGN.md` 等为中文；契约与工程文档为英文，
 > 划分见 [design/README.md](design/README.md)。
 
 ## 为什么做这个
@@ -88,13 +88,15 @@ agent 在开始工作前调用一次：
 - **两类知识** — 带稳定版本链的记忆；带可信度、冲突与证伪的经验台账。
 - **运维 CLI** — `review` / `reindex` / `purge` / `export` / `backup`（`make backup`） / `restore` / `eval`。
 - **检索** — FTS5 + 短查询 LIKE + zh→en 术语扩展。
-- **Web SPA** — React 检索 / 审核 / 条目 / 设置；en·zh-CN；明暗主题（`make web`）。
-- **幂等写入** — remember/record 内容去重；memory `rev` CAS。
+- **Web SPA** — 检索、**知识库**、记住、审核、条目、**投喂**、概览、设置（一键备份）；en·zh-CN；明暗主题。
+- **投喂** — 两阶段预览/确认；plain + docx/xlsx/PDF 文本层；脱敏差异。
+- **幂等写入** — remember/record 内容去重；memory `rev` CAS（MCP 已暴露 `rev`）。
 
 **规划中：**
 
-- **更完整 Web** — 冲突裁定、文件投喂脱敏预览、双语界面。
 - **PostgreSQL 团队模式** — 同一套 MCP，双方言 conformance。
+- **语料层** — `source` / `chunk`（检索现返回 `ERR_NOT_IMPLEMENTED`）。
+- **WU / git 时间线 / 向量** — 见设计路线图。
 
 ## 本仓库快速开始
 

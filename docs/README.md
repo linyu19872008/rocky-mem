@@ -21,7 +21,9 @@ not by importance; see [`../design/README.md`](../design/README.md).
 | [tier2.md](tier2.md) | Backup, term-map, LIKE, minimal web | Process |
 | [tier3.md](tier3.md) | Store conformance + richer web entry/review | Process |
 | [web.md](web.md) | Embedded React SPA: i18n, theme, routes, build | Guide |
+| [ingest.md](ingest.md) | Two-phase file ingest + redaction preview | Guide |
 | [backup.md](backup.md) | VACUUM INTO backup / restore / retain | Guide |
+| [adoption-verdict.md](adoption-verdict.md) | Live Tier-0 adoption checklist result | Process |
 | [quickstart-p0a.md](quickstart-p0a.md) | Runnable P0 SQLite slice quickstart | Guide |
 
 ## Rules for this directory

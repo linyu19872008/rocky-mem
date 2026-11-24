@@ -91,6 +91,7 @@ func cmdServe() *cobra.Command {
 				fmt.Fprintf(os.Stderr, "    %s/overview\n", baseURL)
 				fmt.Fprintf(os.Stderr, "    %s/ingest\n", baseURL)
 				fmt.Fprintf(os.Stderr, "    %s/library\n", baseURL)
+				fmt.Fprintf(os.Stderr, "    %s/remember\n", baseURL)
 			}
 
 			sig := make(chan os.Signal, 1)

@@ -8,13 +8,14 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/rocky-mem/rocky-mem/internal/core"
 	"github.com/rocky-mem/rocky-mem/internal/errs"
+	"github.com/rocky-mem/rocky-mem/internal/version"
 )
 
 // New builds an MCP server bound to a MemAPI (local Service or HTTP client).
 func New(api core.MemAPI) *mcp.Server {
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    "rocky-mem",
-		Version: "0.1.0-tier1",
+		Version: version.Version,
 	}, nil)
 
 	mcp.AddTool(server, &mcp.Tool{
@@ -170,6 +171,7 @@ type rememberArgs struct {
 	ScopeRef    string   `json:"scope_ref,omitempty"`
 	Pinned      bool     `json:"pinned,omitempty"`
 	Priority    int      `json:"priority,omitempty"`
+	Rev         *int     `json:"rev,omitempty" jsonschema:"Optimistic-lock token from mem_get; omit for last-write-wins"`
 	Tags        []string `json:"tags,omitempty"`
 	SourceQuote string   `json:"source_quote,omitempty"`
 	Cwd         string   `json:"cwd,omitempty"`
@@ -180,7 +182,7 @@ func makeRemember(api core.MemAPI) func(context.Context, *mcp.CallToolRequest, r
 		out, err := api.Remember(ctx, core.RememberInput{
 			Title: in.Title, Body: in.Body, MemKey: in.MemKey, MemType: in.MemType,
 			Scope: in.Scope, ScopeRef: in.ScopeRef, Pinned: in.Pinned, Priority: in.Priority,
-			Tags: in.Tags, SourceQuote: in.SourceQuote, Cwd: in.Cwd,
+			Rev: in.Rev, Tags: in.Tags, SourceQuote: in.SourceQuote, Cwd: in.Cwd,
 		})
 		if err != nil {
 			return toolErr(err)

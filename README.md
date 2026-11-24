@@ -13,10 +13,11 @@ Memory is state. Experience is a ledger. Both are searchable in one call.
 
 ---
 
-> **Status: Tier-3 + Web SPA skeleton.** Six MCP tools, `serve` with cookie-auth
-> React UI (en/zh-CN, light/dark), store conformance, backup/eval/term-map.
-> Verify with `make verify-tier3`. See [docs/tier3.md](docs/tier3.md) and
-> [docs/web.md](docs/web.md). Tagged `v0.1.0-tier3`. PostgreSQL / ingest remain later.
+> **Status: Solo usable — v0.1.1.** Six MCP tools, `serve` with cookie-auth React
+> UI (en/zh-CN, light/dark), Library browse, file ingest (docx/xlsx/pdf text),
+> conflict resolve, backup/eval/term-map, store conformance. Verify with
+> `make verify-tier3`. See [docs/web.md](docs/web.md) and [docs/ingest.md](docs/ingest.md).
+> **PostgreSQL / team mode remain later.**
 
 ## Why
 
@@ -103,13 +104,16 @@ they fail from applying it outside its conditions.
   ledger with trust states, conflict detection and falsification.
 - **CLI ops** — `review`, `reindex`, `purge`, `export`, `backup`/`make backup`, `restore`, `eval`.
 - **Retrieval** — FTS5 trigram + short-query LIKE + zh→en term-map expansion.
-- **Web SPA** — React search / review / entry / settings; en·zh-CN; light/dark (`make web`).
-- **Idempotent writes** — remember/record content dedupe; memory `rev` CAS.
+- **Web SPA** — search, **library**, remember form, review, entry, **ingest**, overview,
+  settings (one-click backup); en·zh-CN; light/dark (`make web`).
+- **Ingest** — two-phase preview/confirm; plain + docx/xlsx/PDF text-layer; redaction spans.
+- **Idempotent writes** — remember/record content dedupe; memory `rev` CAS (MCP exposes `rev`).
 
 **Planned:**
 
-- **Richer Web UI** — conflict resolution, file ingest with redaction preview, i18n chrome.
 - **PostgreSQL team mode** — same MCP surface; conformance suite on both backends.
+- **Corpus layer** — `source` / `chunk` kinds (search returns `ERR_NOT_IMPLEMENTED` today).
+- **WU / git timeline / vectors** — see design roadmap.
 
 ## Architecture at a glance
 
@@ -163,6 +167,9 @@ around, and a biased sample is worse than no sample.
 | [docs/i18n.md](docs/i18n.md) | Localization and multilingual content |
 | [docs/tier1.md](docs/tier1.md) | Daemon, review/export/eval gate |
 | [docs/tier0-adoption.md](docs/tier0-adoption.md) | Agent adoption protocol |
+| [docs/web.md](docs/web.md) | Embedded React SPA |
+| [docs/ingest.md](docs/ingest.md) | File ingest + redaction preview |
+| [docs/backup.md](docs/backup.md) | Backup / restore / retain |
 | [design/adr/](design/adr/) | Why the irreversible choices were made (Chinese) |
 | [design/README.md](design/README.md) | Design documentation index, reading order, maintenance rules |
 | [docs/README.md](docs/README.md) | Contract documents index; where each kind of document belongs |

@@ -4,7 +4,10 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"path/filepath"
+	"strings"
 
+	"github.com/rocky-mem/rocky-mem/internal/config"
 	"github.com/rocky-mem/rocky-mem/internal/core"
 	"github.com/rocky-mem/rocky-mem/internal/errs"
 	"github.com/rocky-mem/rocky-mem/internal/web"
@@ -303,13 +306,36 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleBackup(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		Path string `json:"path"`
+		Path   string `json:"path"`
+		Dir    string `json:"dir"`
+		Retain int    `json:"retain"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&in); err != nil && err.Error() != "EOF" {
 		writeErr(w, http.StatusBadRequest, errs.New(errs.InvalidRequest, err.Error(), nil))
 		return
 	}
-	out, err := s.Svc.Backup(r.Context(), in.Path)
+	var (
+		out *core.BackupResult
+		err error
+	)
+	if strings.TrimSpace(in.Path) != "" {
+		out, err = s.Svc.Backup(r.Context(), in.Path)
+	} else {
+		dir := strings.TrimSpace(in.Dir)
+		if dir == "" {
+			home, herr := config.Home()
+			if herr != nil {
+				writeErr(w, http.StatusInternalServerError, errs.As(herr))
+				return
+			}
+			dir = filepath.Join(home, "backups")
+		}
+		retain := in.Retain
+		if retain == 0 {
+			retain = 14
+		}
+		out, err = s.Svc.BackupWithRetain(r.Context(), dir, retain)
+	}
 	if err != nil {
 		writeErr(w, statusOf(err), errs.As(err))
 		return
@@ -340,6 +366,8 @@ func statusOf(err error) int {
 		return http.StatusNotFound
 	case errs.WriteConflict:
 		return http.StatusConflict
+	case errs.NotImplemented:
+		return http.StatusNotImplemented
 	case errs.InvalidRequest, errs.FieldRequired, errs.FieldInvalid, errs.EvidenceRequired, errs.PolicyRejected:
 		return http.StatusBadRequest
 	default:

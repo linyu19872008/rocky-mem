@@ -11,13 +11,27 @@ migration note.
 
 ## [Unreleased]
 
+## [0.1.1] — 2026-11-24
+
+### Added
+
+- **Library browse:** `POST /api/v1/browse` + Web `/library` (kind/trust filters;
+  no search query required). Overview stats drill into Library.
+- **Remember form:** Web `/remember` writes standing memories via `/api/v1/remember`.
+- **Settings one-click backup:** `POST /api/v1/backup` with empty body uses
+  `$ROCKYMEM_HOME/backups` + retain 14.
+- **MCP `mem_remember.rev`:** optimistic-lock arg wired through to core.
+- **`ERR_NOT_IMPLEMENTED`:** search `kinds: ["chunk"|"source"]` returns 501.
+
 ### Changed
 
+- Version unified to **0.1.1** (CLI / MCP / Web pill).
+- README shipped/planned lists updated (ingest + library are not “later”).
 - **Stable serve bearer:** mint `*.token` only when missing/empty; shutdown keeps
   the token file. Use `rockymem serve --rotate-token` (or delete the file) to
   rotate; reload Cursor MCP afterwards. See `docs/tier1.md`.
 
-### Added
+### Added (earlier unreleased → included in 0.1.1)
 
 - **Two-phase ingest:** `POST /api/v1/ingest/preview|confirm` + Web `/ingest`
   (extract → redaction diff → proposed experience). Supports plain text,
