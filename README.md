@@ -13,10 +13,12 @@ Memory is state. Experience is a ledger. Both are searchable in one call.
 
 ---
 
-> **Status: P0 (SQLite slice).** Runnable Go binary with all six MCP tools
+> **Status: Tier-1 (SQLite + daemon).** Runnable Go binary with all six MCP tools
 > (`mem_context` / `mem_search` / `mem_get` / `mem_record` / `mem_remember` /
-> `mem_feedback`) against local SQLite. PostgreSQL and the Web UI are not
-> implemented yet — see [docs/quickstart-p0a.md](docs/quickstart-p0a.md).
+> `mem_feedback`), `rockymem serve` (exclusive writer + `/api/v1`), CLI
+> `review` / `reindex` / `purge` / `export` / `eval`, and `make verify-tier1`.
+> PostgreSQL and the Web UI are not implemented yet — see
+> [docs/quickstart-p0a.md](docs/quickstart-p0a.md) and [docs/tier1.md](docs/tier1.md).
 
 ## Why
 
@@ -93,21 +95,22 @@ they fail from applying it outside its conditions.
    the UI say so. Never silent.
 10. **Removable.** Solo mode is one directory. `rm -rf` and nothing remains.
 
-## Features
+## Features (shipped vs planned)
 
-- **MCP server** — six tools. Works with Cursor, DeepSeek Harness and any MCP
-  client. Read-only tools are safe to call unconditionally.
+**Shipped (SQLite solo):**
+
+- **MCP server** — six tools. Prefer `make serve` first; MCP/CLI reuse the daemon
+  via discovery files next to the DB (same `--dsn`).
 - **Two knowledge types** — versioned memory with stable lineages; an experience
   ledger with trust states, conflict detection and falsification.
-- **A web UI** for what agents should not decide alone: review queues, conflict
-  resolution, and dropping files into the corpus with a redaction preview before
-  anything is written.
-- **Bilingual by default** — English and Simplified Chinese UI, resolved from your
-  browser or a saved setting. Content in any language is retrievable across
-  languages through a curated term map.
-- **Two storage backends** — SQLite for one person, PostgreSQL for a team. Neither
-  is a second-class citizen; a conformance suite runs the same behaviour against
-  both.
+- **CLI ops** — `review`, `reindex`, `purge`, `export`, `eval` (recall@10 gate).
+- **Idempotent writes** — remember/record content dedupe; memory `rev` CAS.
+
+**Planned:**
+
+- **Web UI** — review queues, conflict resolution, file ingest with redaction preview.
+- **Bilingual UI + term-map expansion** — EN/zh-CN chrome; curated cross-language retrieval.
+- **PostgreSQL team mode** — same MCP surface; conformance suite on both backends.
 
 ## Architecture at a glance
 
@@ -121,23 +124,22 @@ One daemon owns the database. MCP clients are thin proxies — Cursor and DSH ea
 spawn their own subprocess, and a subprocess must never open the database
 directly. See [ADR-0005](design/adr/0005-technology-stack.md).
 
-## Install (planned)
+## Quick start (this repo)
 
 ```bash
-# single binary
-brew install <org>/tap/rocky-mem
-
-rockymem init --dsn sqlite://~/.local/share/rocky-mem/rocky-mem.db
-rockymem serve
+make build
+./scripts/seed-demo.sh          # demo prefs + global-scoped experiences
+make serve                      # exclusive writer on .local/rocky-mem.db
+# another terminal / Cursor MCP uses the same DSN and talks HTTP to serve
+make verify-tier1
 ```
 
-Connect a client:
+Project MCP config: [`.cursor/mcp.json`](.cursor/mcp.json) (same DSN as seed/serve).
 
-```jsonc
-// .cursor/mcp.json
-{ "mcpServers": {
-    "rocky-mem": { "command": "rockymem", "args": ["mcp", "--stdio"] }
-} }
+```bash
+# optional: brew install later
+rockymem init --dsn sqlite://~/.local/share/rocky-mem/rocky-mem.db
+rockymem serve --dsn sqlite://~/.local/share/rocky-mem/rocky-mem.db
 ```
 
 ## Non-goals
@@ -158,6 +160,8 @@ around, and a biased sample is worse than no sample.
 | [docs/mcp-tools.md](docs/mcp-tools.md) | Agent-facing contract |
 | [docs/error-codes.md](docs/error-codes.md) | Stable error registry |
 | [docs/i18n.md](docs/i18n.md) | Localization and multilingual content |
+| [docs/tier1.md](docs/tier1.md) | Daemon, review/export/eval gate |
+| [docs/tier0-adoption.md](docs/tier0-adoption.md) | Agent adoption protocol |
 | [design/adr/](design/adr/) | Why the irreversible choices were made (Chinese) |
 | [design/README.md](design/README.md) | Design documentation index, reading order, maintenance rules |
 | [docs/README.md](docs/README.md) | Contract documents index; where each kind of document belongs |

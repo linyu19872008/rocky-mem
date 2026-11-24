@@ -26,27 +26,46 @@ func (db *DB) EnsureLocalUser(ctx context.Context) (int64, error) {
 }
 
 func (db *DB) UpsertProject(ctx context.Context, p store.Project) (store.Project, error) {
+	// 1) Prefer stable remote identity.
 	if p.RemoteURLNorm != "" {
-		var existing store.Project
-		var rootHint sql.NullString
-		var createdBy sql.NullInt64
-		err := db.q().QueryRowContext(ctx,
-			`SELECT id, name, remote_url_norm, root_hint, created_by, created_at FROM project WHERE remote_url_norm=?`,
-			p.RemoteURLNorm,
-		).Scan(&existing.ID, &existing.Name, &existing.RemoteURLNorm, &rootHint, &createdBy, &existing.CreatedAt)
-		if err == nil {
-			existing.RootHint = rootHint.String
-			existing.CreatedBy = int64Ptr(createdBy)
+		if existing, err := db.getProjectByRemote(ctx, p.RemoteURLNorm); err != nil {
+			return store.Project{}, err
+		} else if existing != nil {
 			if p.RootHint != "" && p.RootHint != existing.RootHint {
 				_, _ = db.q().ExecContext(ctx, `UPDATE project SET root_hint=? WHERE id=?`, p.RootHint, existing.ID)
 				existing.RootHint = p.RootHint
 			}
-			return existing, nil
-		}
-		if err != sql.ErrNoRows {
-			return store.Project{}, err
+			if p.RootHint != "" {
+				if err := db.mergeProjectsSameRoot(ctx, existing.ID, p.RootHint); err != nil {
+					return store.Project{}, err
+				}
+			}
+			return *existing, nil
 		}
 	}
+
+	// 2) Same checkout path already registered (e.g. earlier local/ hash before origin existed).
+	if p.RootHint != "" {
+		if existing, err := db.getProjectByRootHint(ctx, p.RootHint); err != nil {
+			return store.Project{}, err
+		} else if existing != nil {
+			if p.RemoteURLNorm != "" && existing.RemoteURLNorm != p.RemoteURLNorm {
+				// Upgrade local/… → real remote without changing id (keeps scope_ref stable).
+				if strings.HasPrefix(existing.RemoteURLNorm, "local/") || existing.RemoteURLNorm == "" {
+					_, err := db.q().ExecContext(ctx,
+						`UPDATE project SET remote_url_norm=?, name=? WHERE id=?`,
+						p.RemoteURLNorm, p.Name, existing.ID)
+					if err != nil {
+						return store.Project{}, err
+					}
+					existing.RemoteURLNorm = p.RemoteURLNorm
+					existing.Name = p.Name
+				}
+			}
+			return *existing, nil
+		}
+	}
+
 	if p.CreatedAt == 0 {
 		p.CreatedAt = now()
 	}
@@ -62,7 +81,80 @@ func (db *DB) UpsertProject(ctx context.Context, p store.Project) (store.Project
 		return store.Project{}, err
 	}
 	p.ID = id
+	if p.RootHint != "" {
+		if err := db.mergeProjectsSameRoot(ctx, p.ID, p.RootHint); err != nil {
+			return store.Project{}, err
+		}
+	}
 	return p, nil
+}
+
+func (db *DB) getProjectByRemote(ctx context.Context, remote string) (*store.Project, error) {
+	return db.scanProject(ctx, `SELECT id, name, remote_url_norm, root_hint, created_by, created_at FROM project WHERE remote_url_norm=?`, remote)
+}
+
+func (db *DB) getProjectByRootHint(ctx context.Context, root string) (*store.Project, error) {
+	return db.scanProject(ctx, `SELECT id, name, remote_url_norm, root_hint, created_by, created_at FROM project WHERE root_hint=? ORDER BY id ASC LIMIT 1`, root)
+}
+
+func (db *DB) scanProject(ctx context.Context, q string, args ...any) (*store.Project, error) {
+	var p store.Project
+	var rootHint sql.NullString
+	var createdBy sql.NullInt64
+	err := db.q().QueryRowContext(ctx, q, args...).Scan(
+		&p.ID, &p.Name, &p.RemoteURLNorm, &rootHint, &createdBy, &p.CreatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	p.RootHint = rootHint.String
+	p.CreatedBy = int64Ptr(createdBy)
+	return &p, nil
+}
+
+// mergeProjectsSameRoot rewrites scope_ref on memory/experience from duplicate
+// project rows that share root_hint onto keepID, then deletes the duplicates.
+func (db *DB) mergeProjectsSameRoot(ctx context.Context, keepID int64, rootHint string) error {
+	rows, err := db.q().QueryContext(ctx,
+		`SELECT id FROM project WHERE root_hint=? AND id<>?`, rootHint, keepID)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	var orphans []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return err
+		}
+		orphans = append(orphans, id)
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	keepRef := fmt.Sprintf("%d", keepID)
+	for _, oid := range orphans {
+		oldRef := fmt.Sprintf("%d", oid)
+		if _, err := db.q().ExecContext(ctx,
+			`UPDATE experience SET scope_ref=? WHERE scope='project' AND scope_ref=?`, keepRef, oldRef); err != nil {
+			return err
+		}
+		if _, err := db.q().ExecContext(ctx,
+			`UPDATE memory SET scope_ref=? WHERE scope='project' AND scope_ref=?`, keepRef, oldRef); err != nil {
+			return err
+		}
+		if _, err := db.q().ExecContext(ctx,
+			`UPDATE raw SET project_id=? WHERE project_id=?`, keepID, oid); err != nil {
+			return err
+		}
+		if _, err := db.q().ExecContext(ctx, `DELETE FROM project WHERE id=?`, oid); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (db *DB) GetProject(ctx context.Context, id int64) (*store.Project, error) {

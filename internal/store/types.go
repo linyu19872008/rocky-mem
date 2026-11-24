@@ -154,10 +154,16 @@ type Store interface {
 	GetExperience(ctx context.Context, id int64) (*Experience, error)
 	ListExperiencesByIDs(ctx context.Context, ids []int64) ([]Experience, error)
 	ListMemoriesByIDs(ctx context.Context, ids []int64) ([]Memory, error)
+	ListExperiencesByTrust(ctx context.Context, trusts []string, limit int) ([]Experience, error)
+	ListAllActiveMemory(ctx context.Context) ([]Memory, error)
+	ListIndexableExperiences(ctx context.Context) ([]Experience, error)
 	FindExperiencesBySymptomKey(ctx context.Context, key string) ([]Experience, error)
 	FindExperiencesByConflictGroup(ctx context.Context, group string) ([]Experience, error)
+	FindExperienceDuplicate(ctx context.Context, title, symptom, fix string) (*Experience, error)
 	MarkContested(ctx context.Context, ids []int64, group string) error
 	UpdateExperienceTrust(ctx context.Context, id int64, trust string) error
+	ClearSearchDocs(ctx context.Context) (int, error)
+	Purge(ctx context.Context, f PurgeFilter) (PurgeResult, error)
 
 	InsertEvidence(ctx context.Context, ev Evidence) (Evidence, error)
 	ListEvidence(ctx context.Context, ownerType string, ownerID int64) ([]Evidence, error)
@@ -189,6 +195,21 @@ type AuditRow struct {
 	TargetID   *int64
 	TargetUID  string
 	Detail     string
+}
+
+// PurgeFilter selects rows to delete.
+type PurgeFilter struct {
+	UID             string
+	Before          int64
+	ProjectScopeRef string
+}
+
+// PurgeResult counts deleted rows.
+type PurgeResult struct {
+	Memories    int
+	Experiences int
+	SearchDocs  int
+	Evidence    int
 }
 
 // Feedback is a use / falsification signal.

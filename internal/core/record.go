@@ -12,28 +12,28 @@ import (
 
 // EvidenceIn is one evidence item on mem_record.
 type EvidenceIn struct {
-	Type string // quote|commit|path|url|session
-	Ref  string
-	Text string
+	Type string `json:"type"` // quote|commit|path|url|session
+	Ref  string `json:"ref,omitempty"`
+	Text string `json:"text,omitempty"`
 }
 
 // RecordInput matches mem_record.
 type RecordInput struct {
-	Title       string
-	ExpType     string
-	Symptom     string
-	RootCause   string
-	Fix         string
-	AppliesWhen string
-	InvalidWhen string
-	Outcome     string
-	Confidence  float64
-	Scope       string
-	ScopeRef    string
-	Evidence    []EvidenceIn
-	Tags        []string
-	Cwd         string
-	Lang        string
+	Title       string       `json:"title"`
+	ExpType     string       `json:"exp_type"`
+	Symptom     string       `json:"symptom,omitempty"`
+	RootCause   string       `json:"root_cause,omitempty"`
+	Fix         string       `json:"fix,omitempty"`
+	AppliesWhen string       `json:"applies_when,omitempty"`
+	InvalidWhen string       `json:"invalid_when,omitempty"`
+	Outcome     string       `json:"outcome,omitempty"`
+	Confidence  float64      `json:"confidence,omitempty"`
+	Scope       string       `json:"scope,omitempty"`
+	ScopeRef    string       `json:"scope_ref,omitempty"`
+	Evidence    []EvidenceIn `json:"evidence"`
+	Tags        []string     `json:"tags,omitempty"`
+	Cwd         string       `json:"cwd,omitempty"`
+	Lang        string       `json:"lang,omitempty"`
 }
 
 // RecordResult is the write acknowledgement.
@@ -73,6 +73,9 @@ func (s *Service) Record(ctx context.Context, in RecordInput) (*RecordResult, er
 		err = nil
 	}
 	scope, ref := writeScope(in.Scope, in.ScopeRef, resolved)
+	title := textnorm.NFC(strings.TrimSpace(in.Title))
+	symptom := textnorm.NFC(in.Symptom)
+	fix := textnorm.NFC(in.Fix)
 
 	var result *RecordResult
 	err = s.Store.WithTx(ctx, func(st store.Store) error {
@@ -81,6 +84,17 @@ func (s *Service) Record(ctx context.Context, in RecordInput) (*RecordResult, er
 		if err != nil {
 			return err
 		}
+
+		if dup, err := st.FindExperienceDuplicate(ctx, title, symptom, fix); err != nil {
+			return err
+		} else if dup != nil {
+			result = &RecordResult{
+				UID: dup.UID, Rev: dup.Rev, Status: "unchanged", Trust: dup.Trust,
+				ReviewRequired: dup.Trust == "proposed",
+			}
+			return nil
+		}
+
 		var pid *int64
 		if proj != nil {
 			pid = &proj.ID
@@ -146,11 +160,9 @@ func (s *Service) Record(ctx context.Context, in RecordInput) (*RecordResult, er
 			return errs.New(errs.EvidenceRequired, "no evidence could be persisted", map[string]any{"min": 1})
 		}
 
-		symptom := textnorm.NFC(in.Symptom)
-		fix := textnorm.NFC(in.Fix)
 		e := store.Experience{
 			UID: uid.Experience(), ExpType: in.ExpType, Scope: scope, ScopeRef: ref,
-			Title: textnorm.NFC(in.Title), Symptom: symptom,
+			Title: title, Symptom: symptom,
 			SymptomKey: textnorm.SymptomKey(symptom, in.Lang),
 			RootCause: textnorm.NFC(in.RootCause), FixMD: fix,
 			FixHash: textnorm.Hash(fix), AppliesWhen: textnorm.NFC(in.AppliesWhen),

@@ -16,6 +16,9 @@ not by importance; see [`../design/README.md`](../design/README.md).
 | [error-codes.md](error-codes.md) | The stable error registry. Codes are never renamed or reused | Stable, part of the public API |
 | [i18n.md](i18n.md) | Locale resolution, message catalogs, ICU rules, multilingual content and retrieval | Normative |
 | [i18n-glossary.md](i18n-glossary.md) | Canonical term translations, plus the alternatives that were rejected and why | Normative for translators |
+| [tier0-adoption.md](tier0-adoption.md) | Agent adoption protocol and live checklist | Process |
+| [tier1.md](tier1.md) | Daemon, maintain CLI, idempotency, retrieval eval gate | Process |
+| [quickstart-p0a.md](quickstart-p0a.md) | Runnable P0 SQLite slice quickstart | Guide |
 
 ## Rules for this directory
 

@@ -13,6 +13,14 @@ migration note.
 
 ### Added
 
+- **Tier-1 operational slice:** `rockymem serve` (flock + discovery + bearer
+  `/api/v1`), MCP/CLI daemon fallback, `review` / `reindex` / `purge` / `export` /
+  `eval`, remember/record idempotency + rev CAS, retrieval corpus with
+  recall@10 ≥ 0.8. See `docs/tier1.md` and `make verify-tier1`.
+- **Project identity coalesce:** same `root_hint` merges `local/…` and remote
+  project rows (remap `scope_ref` + `raw.project_id`). Demo seed uses
+  `--scope global`. `make serve` / `scripts/serve-local.sh` is the default
+  multi-window writer path.
 - **P0 SQLite slice (runnable):** Go binary `rockymem` with SQLite store,
   CLI (`init`, `mcp`, `search`, `show`, `remember`, `record`, `feedback`, `doctor`),
   and all six MCP tools (`mem_context` / `mem_search` / `mem_get` / `mem_record` /

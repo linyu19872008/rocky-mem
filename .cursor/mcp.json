@@ -7,7 +7,10 @@
         "--dsn",
         "sqlite://${workspaceFolder}/.local/rocky-mem.db",
         "mcp"
-      ]
+      ],
+      "env": {
+        "ROCKYMEM_HOME": "${workspaceFolder}/.local"
+      }
     }
   }
 }

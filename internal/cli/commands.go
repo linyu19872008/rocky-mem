@@ -7,12 +7,14 @@ import (
 	"os"
 	"strings"
 
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/rocky-mem/rocky-mem/internal/client"
 	"github.com/rocky-mem/rocky-mem/internal/config"
 	"github.com/rocky-mem/rocky-mem/internal/core"
 	"github.com/rocky-mem/rocky-mem/internal/mcpserver"
+	"github.com/rocky-mem/rocky-mem/internal/store"
 	"github.com/rocky-mem/rocky-mem/internal/store/sqlite"
 	"github.com/spf13/cobra"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 func cmdInit() *cobra.Command {
@@ -44,12 +46,12 @@ func cmdMCP() *cobra.Command {
 		Use:   "mcp",
 		Short: "Run the MCP server on stdio (for Cursor / other clients)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			svc, st, err := openService()
+			sess, err := openSession()
 			if err != nil {
 				return err
 			}
-			defer st.Close()
-			server := mcpserver.New(svc)
+			defer sess.Close()
+			server := mcpserver.New(sess.API)
 			return server.Run(context.Background(), &mcp.StdioTransport{})
 		},
 	}
@@ -63,15 +65,15 @@ func cmdSearch() *cobra.Command {
 		Short: "Search memory and experience",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			svc, st, err := openService()
+			sess, err := openSession()
 			if err != nil {
 				return err
 			}
-			defer st.Close()
+			defer sess.Close()
 			if cwd == "" {
 				cwd, _ = os.Getwd()
 			}
-			out, err := svc.Search(context.Background(), core.SearchInput{
+			out, err := sess.API.Search(context.Background(), core.SearchInput{
 				Query: strings.Join(args, " "), Cwd: cwd, IncludeProposed: true,
 			})
 			if err != nil {
@@ -99,15 +101,15 @@ func cmdRemember() *cobra.Command {
 		Short: "Write a standing memory",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			svc, st, err := openService()
+			sess, err := openSession()
 			if err != nil {
 				return err
 			}
-			defer st.Close()
+			defer sess.Close()
 			if cwd == "" {
 				cwd, _ = os.Getwd()
 			}
-			out, err := svc.Remember(context.Background(), core.RememberInput{
+			out, err := sess.API.Remember(context.Background(), core.RememberInput{
 				Title: args[0], Body: args[1], MemKey: memKey, MemType: memType,
 				Scope: scope, Pinned: pinned, Cwd: cwd,
 			})
@@ -128,7 +130,7 @@ func cmdRemember() *cobra.Command {
 }
 
 func cmdRecord() *cobra.Command {
-	var expType, symptom, root, fix, applies, invalid, outcome, cwd, evidence string
+	var expType, symptom, root, fix, applies, invalid, outcome, cwd, evidence, scope string
 	var confidence float64
 	c := &cobra.Command{
 		Use:   "record <title>",
@@ -138,21 +140,21 @@ func cmdRecord() *cobra.Command {
 			if evidence == "" {
 				return fmt.Errorf("--evidence is required")
 			}
-			svc, st, err := openService()
+			sess, err := openSession()
 			if err != nil {
 				return err
 			}
-			defer st.Close()
+			defer sess.Close()
 			if cwd == "" {
 				cwd, _ = os.Getwd()
 			}
 			if expType == "" {
 				expType = "pitfall"
 			}
-			out, err := svc.Record(context.Background(), core.RecordInput{
+			out, err := sess.API.Record(context.Background(), core.RecordInput{
 				Title: args[0], ExpType: expType, Symptom: symptom, RootCause: root,
 				Fix: fix, AppliesWhen: applies, InvalidWhen: invalid, Outcome: outcome,
-				Confidence: confidence, Cwd: cwd,
+				Confidence: confidence, Scope: scope, Cwd: cwd,
 				Evidence: []core.EvidenceIn{{Type: "quote", Text: evidence}},
 			})
 			if err != nil {
@@ -172,6 +174,7 @@ func cmdRecord() *cobra.Command {
 	c.Flags().StringVar(&outcome, "outcome", "success", "success|failed|unknown")
 	c.Flags().Float64Var(&confidence, "confidence", 0.8, "0..1")
 	c.Flags().StringVar(&evidence, "evidence", "", "verbatim evidence quote")
+	c.Flags().StringVar(&scope, "scope", "", "global|project|session (default: project from --cwd)")
 	c.Flags().StringVar(&cwd, "cwd", "", "working directory")
 	return c
 }
@@ -183,12 +186,12 @@ func cmdShow() *cobra.Command {
 		Short: "Show one memory or experience (mem_get)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			svc, st, err := openService()
+			sess, err := openSession()
 			if err != nil {
 				return err
 			}
-			defer st.Close()
-			out, err := svc.Get(context.Background(), core.GetInput{UID: args[0], IncludeRaw: includeRaw})
+			defer sess.Close()
+			out, err := sess.API.Get(context.Background(), core.GetInput{UID: args[0], IncludeRaw: includeRaw})
 			if err != nil {
 				return err
 			}
@@ -211,12 +214,12 @@ func cmdFeedback() *cobra.Command {
 			if outcome == "" {
 				return fmt.Errorf("--outcome is required")
 			}
-			svc, st, err := openService()
+			sess, err := openSession()
 			if err != nil {
 				return err
 			}
-			defer st.Close()
-			out, err := svc.Feedback(context.Background(), core.FeedbackInput{
+			defer sess.Close()
+			out, err := sess.API.Feedback(context.Background(), core.FeedbackInput{
 				UID: args[0], Outcome: outcome, Note: note,
 			})
 			if err != nil {
@@ -237,12 +240,21 @@ func cmdDoctor() *cobra.Command {
 		Use:   "doctor",
 		Short: "Integrity and environment diagnostics",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			st, err := openStore()
+			sess, err := openSession()
 			if err != nil {
 				return err
 			}
-			defer st.Close()
-			rep, err := st.Doctor(context.Background())
+			defer sess.Close()
+			var rep store.DoctorReport
+			if sess.Remote {
+				c, ok := sess.API.(*client.Client)
+				if !ok {
+					return fmt.Errorf("remote doctor unavailable")
+				}
+				rep, err = c.Doctor(context.Background())
+			} else {
+				rep, err = sess.Store.Doctor(context.Background())
+			}
 			if err != nil {
 				return err
 			}

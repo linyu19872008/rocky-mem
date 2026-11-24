@@ -9,8 +9,8 @@ import (
 
 // GetInput matches mem_get.
 type GetInput struct {
-	UID        string
-	IncludeRaw bool
+	UID        string `json:"uid"`
+	IncludeRaw bool   `json:"include_raw,omitempty"`
 }
 
 // GetResult is a full entry with evidence.

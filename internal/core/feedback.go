@@ -11,9 +11,9 @@ import (
 
 // FeedbackInput matches mem_feedback.
 type FeedbackInput struct {
-	UID     string
-	Outcome string // helpful | wrong | stale
-	Note    string
+	UID     string `json:"uid"`
+	Outcome string `json:"outcome"` // helpful | wrong | stale
+	Note    string `json:"note,omitempty"`
 }
 
 // FeedbackResult is the acknowledgement.

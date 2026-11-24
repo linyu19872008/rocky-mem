@@ -14,21 +14,21 @@ import (
 
 // ContextInput matches mem_context.
 type ContextInput struct {
-	Cwd          string
-	TaskHint     string
-	BudgetTokens int
+	Cwd          string `json:"cwd,omitempty"`
+	TaskHint     string `json:"task_hint,omitempty"`
+	BudgetTokens int    `json:"budget_tokens,omitempty"`
 }
 
 // SearchInput matches mem_search.
 type SearchInput struct {
-	Query           string
-	Cwd             string
-	Scope           string
-	Kinds           []string
-	Lang            string
-	IncludeProposed bool
-	BudgetTokens    int
-	Limit           int
+	Query           string   `json:"query"`
+	Cwd             string   `json:"cwd,omitempty"`
+	Scope           string   `json:"scope,omitempty"`
+	Kinds           []string `json:"kinds,omitempty"`
+	Lang            string   `json:"lang,omitempty"`
+	IncludeProposed bool     `json:"include_proposed"`
+	BudgetTokens    int      `json:"budget_tokens,omitempty"`
+	Limit           int      `json:"limit,omitempty"`
 }
 
 // PackResult is a budgeted context pack.
@@ -219,8 +219,26 @@ func mergeMemories(a, b []store.Memory) []store.Memory {
 	return out
 }
 
+func filterExpScope(exps []store.Experience, resolved *ScopeResolved) []store.Experience {
+	var out []store.Experience
+	for _, e := range exps {
+		switch e.Scope {
+		case "global", "session":
+			out = append(out, e)
+		case "project":
+			if resolved != nil && e.ScopeRef == resolved.ScopeRef {
+				out = append(out, e)
+			}
+		default:
+			out = append(out, e)
+		}
+	}
+	return out
+}
+
 func rerankExperiences(exps []store.Experience, query string, resolved *ScopeResolved, includeProposed bool) []store.Experience {
 	exps = filterVisible(exps, includeProposed)
+	exps = filterExpScope(exps, resolved)
 	type scored struct {
 		e store.Experience
 		s float64

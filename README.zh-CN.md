@@ -13,7 +13,10 @@
 ---
 
 > **本译文的基准是 `README.md`；英文版为唯一真相，本页可能滞后。**
-> 项目已进入 **P0 实现**：SQLite + 全部 6 个 MCP 工具可运行（见 [docs/quickstart-p0a.md](docs/quickstart-p0a.md)）。PostgreSQL 与 Web 尚未实现。
+> 当前进度：**Tier-1（SQLite + daemon）** — 6 个 MCP 工具、`rockymem serve`、
+> `review` / `reindex` / `purge` / `export` / `eval`，验收见 `make verify-tier1`
+>（[docs/tier1.md](docs/tier1.md)、[docs/quickstart-p0a.md](docs/quickstart-p0a.md)）。
+> PostgreSQL 与 Web UI 尚未实现。
 > `design/DESIGN.md` 等设计文档本身就是中文；契约与工程文档为英文，划分见 [design/README.md](design/README.md)。
 
 ## 为什么做这个
@@ -77,13 +80,29 @@ agent 在开始工作前调用一次：
 9. **降级必须声明。** FTS5 或 `pg_trgm` 不可用时，`doctor` 和界面都要说，绝不静默。
 10. **可随时删除。** 单人模式就是一个目录，`rm -rf` 掉什么都不剩。
 
-## 特性
+## 特性（已交付 vs 规划）
 
-- **MCP 服务** — 6 个工具，Cursor、DeepSeek Harness 及任何 MCP 客户端可用；只读工具可以无条件调用。
-- **两类知识** — 带稳定版本链的记忆；带可信度状态、冲突检测与证伪机制的经验台账。
-- **Web 界面** — 处理不该交给 agent 决定的事：审核队列、冲突裁定、文件投喂（**写入前先看脱敏预览**）。
-- **默认双语** — 英文与简体中文，按浏览器语言或你的设置解析；任意语言写的内容都能通过术语表跨语言检索。
-- **两个存储后端** — 单人的 SQLite、团队的 PostgreSQL，都不是二等公民；同一套一致性测试在两个后端上跑同样的行为。
+**已交付（单人 SQLite）：**
+
+- **MCP 服务** — 6 个工具。多窗口时先 `make serve`，MCP/CLI 用同一 DSN 走守护进程。
+- **两类知识** — 带稳定版本链的记忆；带可信度、冲突与证伪的经验台账。
+- **运维 CLI** — `review` / `reindex` / `purge` / `export` / `eval`。
+- **幂等写入** — remember/record 内容去重；memory `rev` CAS。
+
+**规划中：**
+
+- **Web 界面** — 审核队列、冲突裁定、文件投喂（写入前脱敏预览）。
+- **双语 UI + 术语扩展检索**。
+- **PostgreSQL 团队模式** — 同一套 MCP，双方言 conformance。
+
+## 本仓库快速开始
+
+```bash
+make build
+./scripts/seed-demo.sh
+make serve                 # 独占 .local/rocky-mem.db
+make verify-tier1
+```
 
 ## 明确不做
 

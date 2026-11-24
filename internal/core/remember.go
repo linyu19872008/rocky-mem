@@ -12,18 +12,18 @@ import (
 
 // RememberInput matches mem_remember.
 type RememberInput struct {
-	Title       string
-	Body        string
-	MemKey      string
-	MemType     string
-	Scope       string
-	ScopeRef    string
-	Pinned      bool
-	Priority    int
-	Rev         *int
-	Tags        []string
-	SourceQuote string
-	Cwd         string
+	Title       string   `json:"title"`
+	Body        string   `json:"body"`
+	MemKey      string   `json:"mem_key,omitempty"`
+	MemType     string   `json:"mem_type,omitempty"`
+	Scope       string   `json:"scope,omitempty"`
+	ScopeRef    string   `json:"scope_ref,omitempty"`
+	Pinned      bool     `json:"pinned,omitempty"`
+	Priority    int      `json:"priority,omitempty"`
+	Rev         *int     `json:"rev,omitempty"`
+	Tags        []string `json:"tags,omitempty"`
+	SourceQuote string   `json:"source_quote,omitempty"`
+	Cwd         string   `json:"cwd,omitempty"`
 }
 
 // RememberResult is the write acknowledgement.

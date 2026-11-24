@@ -1,0 +1,194 @@
+{
+  "entries": [
+    {
+      "id": "cm1",
+      "title": "ConfigMap hot reload lost during rollout",
+      "symptom": "config reverts after kubectl rollout restart",
+      "root_cause": "file-mounted ConfigMap update lag",
+      "fix": "add checksum annotation on Pod template",
+      "applies_when": "Kubernetes file-mounted ConfigMap",
+      "invalid_when": "config read via ConfigMap API"
+    },
+    {
+      "id": "pnpm1",
+      "title": "Prefer pnpm over npm in monorepos",
+      "exp_type": "howto",
+      "symptom": "npm install creates inconsistent lockfiles across packages",
+      "fix": "use pnpm workspace and pnpm-lock.yaml",
+      "applies_when": "JS monorepo with workspaces"
+    },
+    {
+      "id": "fts1",
+      "title": "SQLite FTS5 trigram for CJK search",
+      "symptom": "Chinese queries return zero hits with unicode61 tokenizer",
+      "fix": "enable trigram tokenizer on FTS5 virtual table",
+      "applies_when": "SQLite FTS5 with CJK content"
+    },
+    {
+      "id": "wal1",
+      "title": "SQLite busy timeout under concurrent readers",
+      "symptom": "database is locked errors from MCP child processes",
+      "fix": "single writer daemon with loopback HTTP proxy",
+      "applies_when": "multiple Cursor MCP stdio spawns"
+    },
+    {
+      "id": "cors1",
+      "title": "Browser CORS preflight fails on custom headers",
+      "symptom": "OPTIONS 404 before POST reaches handler",
+      "fix": "register OPTIONS route or middleware for preflight",
+      "applies_when": "SPA calling custom API headers"
+    },
+    {
+      "id": "grpc1",
+      "title": "gRPC deadline smaller than retry budget",
+      "symptom": "client cancels while server still retrying",
+      "fix": "set deadline above max retry backoff sum",
+      "applies_when": "gRPC clients with automatic retries"
+    },
+    {
+      "id": "redis1",
+      "title": "Redis KEYS blocks production",
+      "symptom": "latency spikes when ops run KEYS *",
+      "fix": "use SCAN cursor iteration instead of KEYS",
+      "applies_when": "Redis in production traffic"
+    },
+    {
+      "id": "docker1",
+      "title": "Docker layer cache busted by apt update",
+      "symptom": "every rebuild redownloads packages",
+      "fix": "pin package lists and order COPY of lockfiles first",
+      "applies_when": "Dockerfile with apt-get update"
+    },
+    {
+      "id": "git1",
+      "title": "force-push to main destroys review history",
+      "symptom": "PR commits disappear after rebase push",
+      "fix": "protect main; use --force-with-lease on feature branches only",
+      "applies_when": "shared main/master branches"
+    },
+    {
+      "id": "jwt1",
+      "title": "JWT in localStorage XSS theft",
+      "symptom": "session stolen via injected script",
+      "fix": "httpOnly secure cookies; short-lived access tokens",
+      "applies_when": "browser SPA authentication"
+    },
+    {
+      "id": "k8s1",
+      "title": "liveness probe kills slow starters",
+      "symptom": "Pod CrashLoopBackOff during cold start",
+      "fix": "raise initialDelaySeconds; use startupProbe",
+      "applies_when": "Kubernetes probes on JVM or large apps"
+    },
+    {
+      "id": "pg1",
+      "title": "Postgres sequential scan on missing index",
+      "symptom": "query planner chooses seq scan on large table",
+      "fix": "create btree index matching WHERE/JOIN columns",
+      "applies_when": "PostgreSQL slow queries"
+    },
+    {
+      "id": "go1",
+      "title": "Go context cancelled after HTTP handler return",
+      "symptom": "background work fails with context canceled",
+      "fix": "detach with context.WithoutCancel or pass request-scoped clone carefully",
+      "applies_when": "async work spawned from net/http handlers"
+    },
+    {
+      "id": "tls1",
+      "title": "TLS handshake failure missing intermediate",
+      "symptom": "clients reject certificate chain",
+      "fix": "serve full chain including intermediates",
+      "applies_when": "HTTPS servers with custom certs"
+    },
+    {
+      "id": "nfs1",
+      "title": "NFS lock hangs SQLite",
+      "symptom": "SQLite hangs or corrupts on network filesystem",
+      "fix": "keep SQLite on local disk; never NFS/SMB",
+      "applies_when": "SQLite database path selection"
+    },
+    {
+      "id": "oauth1",
+      "title": "OAuth state parameter CSRF",
+      "symptom": "login completes for attacker-controlled account",
+      "fix": "bind state to session cookie and verify on callback",
+      "applies_when": "OAuth2 authorization code flow"
+    },
+    {
+      "id": "css1",
+      "title": "CSS specificity war from utility classes",
+      "symptom": "styles unexpectedly overridden in production build",
+      "fix": "reduce !important; control cascade order in bundler",
+      "applies_when": "utility-first CSS frameworks"
+    },
+    {
+      "id": "kafka1",
+      "title": "Kafka consumer lag from stop-the-world GC",
+      "symptom": "consumer group lag spikes during GC pauses",
+      "fix": "tune heap; use cooperative sticky assignor; increase max.poll.interval",
+      "applies_when": "JVM Kafka consumers"
+    },
+    {
+      "id": "race1",
+      "title": "TOCTOU file replace race",
+      "symptom": "config file half-written when reader opens it",
+      "fix": "write temp then atomic rename into place",
+      "applies_when": "shared config files on POSIX"
+    },
+    {
+      "id": "null1",
+      "title": "SQL NULL not equal in WHERE",
+      "symptom": "rows with NULL column missing from equality filter",
+      "fix": "use IS NULL / IS NOT DISTINCT FROM",
+      "applies_when": "SQL filters on nullable columns"
+    },
+    {
+      "id": "zh1",
+      "title": "中文分词检索遗漏同义词",
+      "symptom": "搜索「配置」找不到「ConfigMap」相关经验",
+      "fix": "写入双语标题与症状字段；检索用 trigram",
+      "applies_when": "中英混合知识库检索"
+    },
+    {
+      "id": "mcp1",
+      "title": "MCP project_id seed miss hides experiences",
+      "symptom": "CLI search finds lesson but MCP mem_search pack is empty for same DSN because project_id seed miss",
+      "fix": "record under cwd-resolved project or use global scope",
+      "applies_when": "shared local DSN across CLI seed and MCP"
+    },
+    {
+      "id": "embed1",
+      "title": "go embed migrations cannot leave module root",
+      "symptom": "go: embed pattern ../db refers outside package when embedding migrations",
+      "fix": "put embed.go next to migration SQL or use a package under db/",
+      "applies_when": "Go go:embed of migration SQL"
+    },
+    {
+      "id": "ulid1",
+      "title": "ULID lexicographic sort equals time order",
+      "symptom": "need sortable public ids without exposing integer PK",
+      "fix": "use ULID for uid fields; keep internal bigint id",
+      "applies_when": "public identifiers for APIs"
+    },
+    {
+      "id": "flake1",
+      "title": "flake tests from shared clock",
+      "symptom": "time.Now assertions fail near midnight UTC",
+      "fix": "inject clock interface in tests",
+      "applies_when": "unit tests depending on wall clock"
+    }
+  ],
+  "queries": [
+    {"q": "ConfigMap rollout restart", "relevant": ["cm1"]},
+    {"q": "pnpm workspace lockfile", "relevant": ["pnpm1"]},
+    {"q": "FTS5 Chinese trigram", "relevant": ["fts1", "zh1"]},
+    {"q": "database is locked MCP", "relevant": ["wal1"]},
+    {"q": "Redis KEYS production", "relevant": ["redis1"]},
+    {"q": "startupProbe CrashLoopBackOff", "relevant": ["k8s1"]},
+    {"q": "SQLite on NFS", "relevant": ["nfs1"]},
+    {"q": "go embed migrations", "relevant": ["embed1"]},
+    {"q": "OAuth state CSRF", "relevant": ["oauth1"]},
+    {"q": "MCP project_id seed miss", "relevant": ["mcp1"]}
+  ]
+}

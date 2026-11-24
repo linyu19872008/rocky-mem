@@ -10,50 +10,50 @@ import (
 	"github.com/rocky-mem/rocky-mem/internal/errs"
 )
 
-// New builds an MCP server bound to the core service.
-func New(svc *core.Service) *mcp.Server {
+// New builds an MCP server bound to a MemAPI (local Service or HTTP client).
+func New(api core.MemAPI) *mcp.Server {
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    "rocky-mem",
-		Version: "0.1.0-p0b",
+		Version: "0.1.0-tier1",
 	}, nil)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name: "mem_context",
 		Description: "Return standing preferences for a working directory under a small fixed budget. " +
 			"Cheap enough to call unconditionally on every session.",
-	}, makeContext(svc))
+	}, makeContext(api))
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name: "mem_search",
 		Description: "Search the local knowledge base before starting a non-trivial task. " +
 			"Returns a budgeted context pack with provenance. If an entry conflicts with what you " +
 			"actually observe, call mem_feedback with outcome=wrong instead of silently ignoring it.",
-	}, makeSearch(svc))
+	}, makeSearch(api))
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name: "mem_get",
 		Description: "Fetch one memory or experience by uid (m_… / e_…), including evidence chain. " +
 			"For memory, always resolves to the current active version in the lineage.",
-	}, makeGet(svc))
+	}, makeGet(api))
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name: "mem_record",
 		Description: "Record a reusable engineering lesson. Evidence is mandatory: cite what you " +
 			"actually observed. Entries are reviewed before they become authoritative; the response " +
 			"tells you the real status — do not claim success if status is pending_review or rejected.",
-	}, makeRecord(svc))
+	}, makeRecord(api))
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name: "mem_remember",
 		Description: "Write or update a standing memory (preference, fact, constraint). " +
 			"Providing mem_key enables upsert semantics for the current value.",
-	}, makeRemember(svc))
+	}, makeRemember(api))
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name: "mem_feedback",
 		Description: "Report whether a retrieved entry was helpful, wrong, or stale. " +
 			"Call freely; outcome=wrong demotes experience trust immediately.",
-	}, makeFeedback(svc))
+	}, makeFeedback(api))
 
 	return server
 }
@@ -79,9 +79,9 @@ type contextArgs struct {
 	BudgetTokens int    `json:"budget_tokens,omitempty" jsonschema:"Token budget, default 600"`
 }
 
-func makeContext(svc *core.Service) func(context.Context, *mcp.CallToolRequest, contextArgs) (*mcp.CallToolResult, any, error) {
+func makeContext(api core.MemAPI) func(context.Context, *mcp.CallToolRequest, contextArgs) (*mcp.CallToolResult, any, error) {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in contextArgs) (*mcp.CallToolResult, any, error) {
-		out, err := svc.Context(ctx, core.ContextInput{
+		out, err := api.Context(ctx, core.ContextInput{
 			Cwd: in.Cwd, TaskHint: in.TaskHint, BudgetTokens: in.BudgetTokens,
 		})
 		if err != nil {
@@ -102,13 +102,13 @@ type searchArgs struct {
 	Limit           int      `json:"limit,omitempty"`
 }
 
-func makeSearch(svc *core.Service) func(context.Context, *mcp.CallToolRequest, searchArgs) (*mcp.CallToolResult, any, error) {
+func makeSearch(api core.MemAPI) func(context.Context, *mcp.CallToolRequest, searchArgs) (*mcp.CallToolResult, any, error) {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in searchArgs) (*mcp.CallToolResult, any, error) {
 		include := true
 		if in.IncludeProposed != nil {
 			include = *in.IncludeProposed
 		}
-		out, err := svc.Search(ctx, core.SearchInput{
+		out, err := api.Search(ctx, core.SearchInput{
 			Query: in.Query, Cwd: in.Cwd, Scope: in.Scope, Kinds: in.Kinds,
 			Lang: in.Lang, IncludeProposed: include, BudgetTokens: in.BudgetTokens, Limit: in.Limit,
 		})
@@ -142,13 +142,13 @@ type recordArgs struct {
 	Cwd         string        `json:"cwd,omitempty"`
 }
 
-func makeRecord(svc *core.Service) func(context.Context, *mcp.CallToolRequest, recordArgs) (*mcp.CallToolResult, any, error) {
+func makeRecord(api core.MemAPI) func(context.Context, *mcp.CallToolRequest, recordArgs) (*mcp.CallToolResult, any, error) {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in recordArgs) (*mcp.CallToolResult, any, error) {
 		ev := make([]core.EvidenceIn, len(in.Evidence))
 		for i, e := range in.Evidence {
 			ev[i] = core.EvidenceIn{Type: e.Type, Ref: e.Ref, Text: e.Text}
 		}
-		out, err := svc.Record(ctx, core.RecordInput{
+		out, err := api.Record(ctx, core.RecordInput{
 			Title: in.Title, ExpType: in.ExpType, Symptom: in.Symptom, RootCause: in.RootCause,
 			Fix: in.Fix, AppliesWhen: in.AppliesWhen, InvalidWhen: in.InvalidWhen,
 			Outcome: in.Outcome, Confidence: in.Confidence, Scope: in.Scope, ScopeRef: in.ScopeRef,
@@ -175,9 +175,9 @@ type rememberArgs struct {
 	Cwd         string   `json:"cwd,omitempty"`
 }
 
-func makeRemember(svc *core.Service) func(context.Context, *mcp.CallToolRequest, rememberArgs) (*mcp.CallToolResult, any, error) {
+func makeRemember(api core.MemAPI) func(context.Context, *mcp.CallToolRequest, rememberArgs) (*mcp.CallToolResult, any, error) {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in rememberArgs) (*mcp.CallToolResult, any, error) {
-		out, err := svc.Remember(ctx, core.RememberInput{
+		out, err := api.Remember(ctx, core.RememberInput{
 			Title: in.Title, Body: in.Body, MemKey: in.MemKey, MemType: in.MemType,
 			Scope: in.Scope, ScopeRef: in.ScopeRef, Pinned: in.Pinned, Priority: in.Priority,
 			Tags: in.Tags, SourceQuote: in.SourceQuote, Cwd: in.Cwd,
@@ -194,9 +194,9 @@ type getArgs struct {
 	IncludeRaw bool   `json:"include_raw,omitempty" jsonschema:"Include truncated evidence excerpts"`
 }
 
-func makeGet(svc *core.Service) func(context.Context, *mcp.CallToolRequest, getArgs) (*mcp.CallToolResult, any, error) {
+func makeGet(api core.MemAPI) func(context.Context, *mcp.CallToolRequest, getArgs) (*mcp.CallToolResult, any, error) {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in getArgs) (*mcp.CallToolResult, any, error) {
-		out, err := svc.Get(ctx, core.GetInput{UID: in.UID, IncludeRaw: in.IncludeRaw})
+		out, err := api.Get(ctx, core.GetInput{UID: in.UID, IncludeRaw: in.IncludeRaw})
 		if err != nil {
 			return toolErr(err)
 		}
@@ -210,9 +210,9 @@ type feedbackArgs struct {
 	Note    string `json:"note,omitempty" jsonschema:"Required when outcome=wrong"`
 }
 
-func makeFeedback(svc *core.Service) func(context.Context, *mcp.CallToolRequest, feedbackArgs) (*mcp.CallToolResult, any, error) {
+func makeFeedback(api core.MemAPI) func(context.Context, *mcp.CallToolRequest, feedbackArgs) (*mcp.CallToolResult, any, error) {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in feedbackArgs) (*mcp.CallToolResult, any, error) {
-		out, err := svc.Feedback(ctx, core.FeedbackInput{
+		out, err := api.Feedback(ctx, core.FeedbackInput{
 			UID: in.UID, Outcome: in.Outcome, Note: in.Note,
 		})
 		if err != nil {
