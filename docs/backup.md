@@ -25,6 +25,10 @@ make backup
 # runs daily at 03:15 local; logs to .local/backup.log
 ```
 
+If LaunchAgent logs `Operation not permitted` (common when the repo lives under
+Desktop/Documents), grant **Full Disk Access** to `/bin/bash` or move the DB under
+`~/Library/...`, or keep using cron/`./scripts/backup-daily.sh` from an interactive shell.
+
 ### Cron
 
 ```
