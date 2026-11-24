@@ -10,6 +10,7 @@ import { OverviewPage } from "./pages/OverviewPage";
 import { IngestPage } from "./pages/IngestPage";
 import { LibraryPage } from "./pages/LibraryPage";
 import { RememberPage } from "./pages/RememberPage";
+import { RecordPage } from "./pages/RecordPage";
 
 export function App() {
   return (
@@ -21,6 +22,7 @@ export function App() {
               <Route index element={<SearchPage />} />
               <Route path="library" element={<LibraryPage />} />
               <Route path="remember" element={<RememberPage />} />
+              <Route path="record" element={<RecordPage />} />
               <Route path="review" element={<ReviewPage />} />
               <Route path="entry" element={<EntryPage />} />
               <Route path="settings" element={<SettingsPage />} />

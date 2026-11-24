@@ -297,16 +297,19 @@ Write an experience. Always treated as a claim, never as fact.
 
 **Evidence resolution**
 
+Best-effort and shallow (no deep git object walk, no remote fetch):
+
 | `type` | Server behaviour |
 |---|---|
 | `quote` | Creates a `raw` row with `channel='agent'`, storing the verbatim text. Redaction applies. |
-| `commit` | Resolved against the repository inferred from `cwd`; stores sha, short subject, and author |
-| `path` | Resolved to a repo-relative path if the file exists; stores the path and mtime |
-| `url` | Stored as a raw reference; the server does not fetch it |
-| `session` | Defaults to the current session id; usually implicit |
+| `commit` | If `cwd` is a git work tree, runs `git log -1` for `ref` and stores sha / subject / author / date. Otherwise stores `text` or `commit <ref>` and adds a `warnings` entry. |
+| `path` | If `ref` exists under `cwd`, stores repo-relative path + size + mtime. Otherwise stores `text` or `path <ref>` with a warning. |
+| `url` | Stored as a raw reference; the server does not fetch it. |
+| `session` | Stores `text` or `session <ref>`; no implicit session injection in solo mode. |
 
-If resolution fails, the evidence is stored with `role='context'` and the
-response includes a `warnings` entry. It is not silently dropped.
+If resolution fails, the evidence is still persisted as text when possible and the
+response includes a `warnings` entry. Empty evidence after resolution is skipped
+(and may trigger `ERR_EVIDENCE_REQUIRED` if nothing remains).
 
 **Output**
 

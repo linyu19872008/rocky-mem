@@ -103,43 +103,25 @@ func (s *Service) Record(ctx context.Context, in RecordInput) (*RecordResult, er
 		var warnings []string
 		var rawIDs []int64
 		for _, ev := range in.Evidence {
-			text := ev.Text
 			srcRef := ev.Ref
 			channel := "agent"
-			role := "support"
 			switch ev.Type {
 			case "quote":
-				if text == "" {
-					warnings = append(warnings, "quote evidence missing text")
-					continue
-				}
 				channel = "agent"
 			case "commit":
 				channel = "git"
-				if text == "" {
-					text = "commit " + ev.Ref
-				}
 			case "path":
 				channel = "file"
-				if text == "" {
-					text = "path " + ev.Ref
-				}
 			case "url":
 				channel = "web"
-				if text == "" {
-					text = ev.Ref
-				}
 			case "session":
 				channel = "transcript"
-				if text == "" {
-					text = "session " + ev.Ref
-				}
 			default:
-				warnings = append(warnings, "unknown evidence type "+ev.Type)
-				role = "context"
-				if text == "" {
-					text = ev.Ref
-				}
+				channel = "agent"
+			}
+			text, warn := resolveEvidenceText(ev.Type, ev.Ref, ev.Text, in.Cwd)
+			if warn != "" {
+				warnings = append(warnings, warn)
 			}
 			if strings.TrimSpace(text) == "" {
 				warnings = append(warnings, "empty evidence skipped")
@@ -154,7 +136,6 @@ func (s *Service) Record(ctx context.Context, in RecordInput) (*RecordResult, er
 				continue
 			}
 			rawIDs = append(rawIDs, raw.ID)
-			_ = role
 		}
 		if len(rawIDs) == 0 {
 			return errs.New(errs.EvidenceRequired, "no evidence could be persisted", map[string]any{"min": 1})

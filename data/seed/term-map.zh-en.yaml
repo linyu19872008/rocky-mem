@@ -170,3 +170,29 @@ entries:
   - zh: 约定
     en: [convention, guideline]
     domain: process
+
+  # --- rocky-mem / local ops short queries ---
+  - zh: 知识库
+    en: [library, browse, corpus]
+    domain: agent
+  - zh: 投喂
+    en: [ingest, upload]
+    domain: agent
+  - zh: 脱敏
+    en: [redact, redaction]
+    domain: agent
+  - zh: 审核
+    en: [review, approval]
+    domain: agent
+  - zh: 令牌
+    en: [token, bearer]
+    domain: security
+  - zh: 快照
+    en: [snapshot, "VACUUM INTO"]
+    domain: storage
+  - zh: 乱码
+    en: [mojibake, garbage, garbled]
+    domain: general
+  - zh: 加班表
+    en: ["overtime sheet", timesheet]
+    domain: general

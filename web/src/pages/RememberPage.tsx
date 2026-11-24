@@ -19,7 +19,7 @@ export function RememberPage() {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [memKey, setMemKey] = useState("");
-  const [memType, setMemType] = useState("preference");
+  const [memType, setMemType] = useState("pref");
   const [pinned, setPinned] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -133,9 +133,10 @@ export function RememberPage() {
                 onChange={(e) => setMemType(e.target.value)}
                 disabled={busy}
               >
-                <option value="preference">preference</option>
+                <option value="pref">pref</option>
                 <option value="fact">fact</option>
                 <option value="constraint">constraint</option>
+                <option value="glossary">glossary</option>
               </select>
             </label>
             <label className="field" style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "0.75rem" }}>

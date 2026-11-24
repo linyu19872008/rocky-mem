@@ -11,6 +11,15 @@ migration note.
 
 ## [Unreleased]
 
+### Added
+
+- **Record form:** Web `/record` for hand-written experiences with quote evidence.
+- **Ingest success CTAs:** clearer next steps to Review / Library / Entry.
+- **Shallow evidence resolve:** `commit` via `git log -1`, `path` via file stat
+  under `cwd` (docs/mcp-tools.md updated).
+- **Eval / term-map thickening:** more corpus entries + zh/en short queries;
+  extra seed terms (知识库/投喂/脱敏/…).
+
 ## [0.1.1] — 2026-11-24
 
 ### Added

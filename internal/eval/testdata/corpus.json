@@ -201,6 +201,38 @@
       "fix": "reuse rocky-mem.token across restarts; rotate only with --rotate-token",
       "applies_when": "solo rockymem serve + long-lived Cursor MCP",
       "invalid_when": "team remote auth tokens"
+    },
+    {
+      "id": "ingest1",
+      "title": "DOCX upload as text() shows ZIP garbage",
+      "symptom": "ingest preview shows PK zip bytes instead of document text",
+      "fix": "send content_base64; server extracts word/document.xml text layer",
+      "applies_when": "web ingest of Office Open XML files",
+      "invalid_when": "legacy .doc binary Word format"
+    },
+    {
+      "id": "browse1",
+      "title": "Library browse without search query",
+      "symptom": "users cannot see memories unless they already know a UID or invent a query",
+      "fix": "use POST /api/v1/browse and /library with kind/trust filters",
+      "applies_when": "solo web SPA knowledge discovery",
+      "invalid_when": "retrieval debugging where empty query must stay illegal"
+    },
+    {
+      "id": "backup1",
+      "title": "VACUUM INTO snapshot while serve is up",
+      "symptom": "need safe backup without stopping the exclusive writer",
+      "fix": "rockymem backup --dir … --retain N or Settings Backup now",
+      "applies_when": "SQLite solo with rockymem serve running",
+      "invalid_when": "PostgreSQL team mode backups"
+    },
+    {
+      "id": "rate1",
+      "title": "API rate limit then circuit breaker",
+      "symptom": "upstream 429 storms cascade into total outage",
+      "fix": "client-side rate limit plus circuit breaker with half-open probes",
+      "applies_when": "multi-service HTTP clients under overload",
+      "invalid_when": "single-call scripts with no retry loop"
     }
   ],
   "queries": [
@@ -217,6 +249,13 @@
     {"q": "滚动更新 ConfigMap", "relevant": ["cm1"]},
     {"q": "灰度发布 回滚", "relevant": ["canary1"]},
     {"q": "死锁 mutex", "relevant": ["deadlock1"]},
-    {"q": "serve token MCP unauthorized", "relevant": ["token1"]}
+    {"q": "serve token MCP unauthorized", "relevant": ["token1"]},
+    {"q": "docx ZIP garbage ingest", "relevant": ["ingest1"]},
+    {"q": "知识库 browse 无查询", "relevant": ["browse1"]},
+    {"q": "备份 VACUUM", "relevant": ["backup1"]},
+    {"q": "限流 熔断", "relevant": ["rate1"]},
+    {"q": "慢查询 全表扫描", "relevant": ["pg1"]},
+    {"q": "oauth csrf state", "relevant": ["oauth1"]},
+    {"q": "生产 Redis KEYS", "relevant": ["redis1"]}
   ]
 }

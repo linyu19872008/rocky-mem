@@ -1,5 +1,5 @@
 import { useCallback, useState, type DragEvent, type FormEvent } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { FormattedMessage, useIntl } from "react-intl";
 import { api, ApiRequestError } from "../lib/api";
 import { PageHeader } from "../components/PageHeader";
@@ -7,6 +7,7 @@ import { DataCard } from "../components/DataCard";
 import { Button } from "../components/Button";
 import { RedactDiff, type DiffSegment } from "../components/RedactDiff";
 import { ExtractedBody } from "../components/ExtractedBody";
+import { TrustBadge } from "../components/Badge";
 
 type Preview = {
   filename?: string;
@@ -61,6 +62,7 @@ async function fileToBase64(file: File): Promise<string> {
 
 export function IngestPage() {
   const intl = useIntl();
+  const nav = useNavigate();
   const [preview, setPreview] = useState<Preview | null>(null);
   const [title, setTitle] = useState("");
   const [err, setErr] = useState("");
@@ -184,12 +186,46 @@ export function IngestPage() {
         <DataCard title={<FormattedMessage id="ingest.done" />}>
           <p>
             <Link to={`/entry?uid=${encodeURIComponent(done.uid)}`}>{done.uid}</Link>
-            {done.trust ? ` · ${done.trust}` : ""}
-            {done.review_required ? ` · ${intl.formatMessage({ id: "ingest.reviewRequired" })}` : ""}
+            {done.trust ? (
+              <>
+                {" "}
+                <TrustBadge trust={done.trust} />
+              </>
+            ) : null}
           </p>
-          <Button variant="primary" onClick={() => setDone(null)}>
-            <FormattedMessage id="ingest.again" />
-          </Button>
+          <p className="meta">
+            {done.review_required || done.trust === "proposed" || done.trust === "contested" ? (
+              <FormattedMessage id="ingest.nextReview" />
+            ) : (
+              <FormattedMessage id="ingest.nextLibrary" />
+            )}
+          </p>
+          <div className="ingest-actions" style={{ border: 0, paddingTop: 0, justifyContent: "flex-start" }}>
+            <Button
+              variant="primary"
+              onClick={() =>
+                nav(
+                  done.review_required || done.trust === "proposed" || done.trust === "contested"
+                    ? "/review"
+                    : "/library?kind=experience&trust=all",
+                )
+              }
+            >
+              <FormattedMessage
+                id={
+                  done.review_required || done.trust === "proposed" || done.trust === "contested"
+                    ? "ingest.openReview"
+                    : "ingest.openLibrary"
+                }
+              />
+            </Button>
+            <Button onClick={() => nav(`/entry?uid=${encodeURIComponent(done.uid)}`)}>
+              <FormattedMessage id="ingest.openEntry" />
+            </Button>
+            <Button onClick={() => setDone(null)}>
+              <FormattedMessage id="ingest.again" />
+            </Button>
+          </div>
         </DataCard>
       ) : null}
 

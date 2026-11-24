@@ -43,6 +43,7 @@ pnpm --dir web dev  # terminal 2 — proxies /api to :7432
 | `/` | Search (retrieval debugger); empty state links to Library |
 | `/library` | Browse memories + experiences via `POST /api/v1/browse` (no query required) |
 | `/remember` | Write a standing memory (`POST /api/v1/remember`) |
+| `/record` | Write an experience with evidence (`POST /api/v1/record`) |
 | `/review` | Review queue with KPI + counted filter chips |
 | `/entry` | Entry detail + conflict compare; approve/reject in page header |
 | `/settings` | Preferences / doctor / **one-click backup** (`POST /api/v1/backup`) |
