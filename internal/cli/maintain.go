@@ -196,24 +196,45 @@ func cmdExport() *cobra.Command {
 }
 
 func cmdBackup() *cobra.Command {
-	var dest string
+	var dest, dir string
+	var retain int
 	c := &cobra.Command{
 		Use:   "backup",
 		Short: "Snapshot the store with VACUUM INTO",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if dest == "" {
-				home, err := config.Home()
-				if err != nil {
-					return err
-				}
-				dest = core.DefaultBackupPath(filepath.Join(home, "backups"))
-			}
 			sess, err := openSession()
 			if err != nil {
 				return err
 			}
 			defer sess.Close()
-			out, err := sess.API.Backup(context.Background(), dest)
+			ctx := context.Background()
+			var out *core.BackupResult
+			if dest != "" {
+				out, err = sess.API.Backup(ctx, dest)
+			} else {
+				if dir == "" {
+					home, err := config.Home()
+					if err != nil {
+						return err
+					}
+					dir = filepath.Join(home, "backups")
+				}
+				// Prefer BackupWithRetain when talking to a local Service.
+				if svc, ok := sess.API.(*core.Service); ok {
+					out, err = svc.BackupWithRetain(ctx, dir, retain)
+				} else {
+					path := core.DefaultBackupPath(dir)
+					out, err = sess.API.Backup(ctx, path)
+					if err == nil && retain > 0 {
+						pruned, perr := core.PruneBackups(dir, retain)
+						if perr != nil {
+							return perr
+						}
+						out.Pruned = pruned
+						out.RetainKeep = retain
+					}
+				}
+			}
 			if err != nil {
 				return err
 			}
@@ -222,7 +243,9 @@ func cmdBackup() *cobra.Command {
 			return enc.Encode(out)
 		},
 	}
-	c.Flags().StringVar(&dest, "out", "", "destination .db path (default: $ROCKYMEM_HOME/backups/rocky-mem-*.db)")
+	c.Flags().StringVar(&dest, "out", "", "exact destination .db path (skips --dir/--retain prune naming)")
+	c.Flags().StringVar(&dir, "dir", "", "backup directory (default: $ROCKYMEM_HOME/backups)")
+	c.Flags().IntVar(&retain, "retain", 0, "keep newest N rocky-mem-*.db in --dir (0 = keep all)")
 	return c
 }
 

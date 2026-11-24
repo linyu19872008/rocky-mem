@@ -19,6 +19,7 @@ not by importance; see [`../design/README.md`](../design/README.md).
 | [tier0-adoption.md](tier0-adoption.md) | Agent adoption protocol and live checklist | Process |
 | [tier1.md](tier1.md) | Daemon, maintain CLI, idempotency, retrieval eval gate | Process |
 | [tier2.md](tier2.md) | Backup, term-map, LIKE, minimal web | Process |
+| [tier3.md](tier3.md) | Store conformance + richer web entry/review | Process |
 | [quickstart-p0a.md](quickstart-p0a.md) | Runnable P0 SQLite slice quickstart | Guide |
 
 ## Rules for this directory

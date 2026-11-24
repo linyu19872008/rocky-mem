@@ -72,9 +72,13 @@ func cmdServe() *cobra.Command {
 				errCh <- srv.Serve(ln)
 			}()
 
-			fmt.Fprintf(os.Stderr, "rockymem serve listening on http://%s\n  db: %s\n  token file: %s\n", addr, path, paths.Token)
+			baseURL := "http://" + addr
+			fmt.Fprintf(os.Stderr, "rockymem serve listening on %s\n  db: %s\n  token file (MCP/CLI): %s\n", baseURL, path, paths.Token)
 			if !noWeb {
-				fmt.Fprintf(os.Stderr, "  web UI: http://%s/  (search)  http://%s/review\n", addr, addr)
+				fmt.Fprintf(os.Stderr, "  open in browser (cookie auth, no Bearer needed):\n")
+				fmt.Fprintf(os.Stderr, "    %s/\n", baseURL)
+				fmt.Fprintf(os.Stderr, "    %s/review\n", baseURL)
+				fmt.Fprintf(os.Stderr, "    %s/entry\n", baseURL)
 			}
 
 			sig := make(chan os.Signal, 1)

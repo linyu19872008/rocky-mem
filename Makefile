@@ -1,7 +1,9 @@
-.PHONY: build test lint doctor seed serve mcp-smoke verify-tier0 verify-tier1 verify-tier2
+.PHONY: build test lint doctor seed serve backup mcp-smoke verify-tier0 verify-tier1 verify-tier2 verify-tier3
 
 BINARY ?= bin/rockymem
 DSN ?= sqlite://$(CURDIR)/.local/rocky-mem.db
+BACKUP_DIR ?= $(CURDIR)/.local/backups
+BACKUP_RETAIN ?= 14
 
 build:
 	mkdir -p bin
@@ -23,6 +25,10 @@ seed: build
 serve: build
 	./scripts/serve-local.sh
 
+# Snapshot store (safe while serve is up). Override BACKUP_RETAIN / BACKUP_DIR as needed.
+backup: build
+	./$(BINARY) --dsn $(DSN) backup --dir $(BACKUP_DIR) --retain $(BACKUP_RETAIN)
+
 mcp-smoke: build
 	go run ./scripts/mcp_smoke.go
 
@@ -43,3 +49,9 @@ verify-tier2: build
 	go test ./internal/daemon/ ./internal/api/ ./internal/core/ ./internal/eval/ ./internal/termmap/ ./internal/project/ ./internal/textnorm/ ./internal/adoption/ ./internal/store/sqlite/
 	./$(BINARY) eval --min-recall 0.8
 	@echo "OK: tier-2 automated gate passed"
+
+# Tier-3 gate: store conformance + web/cookie auth + prior gates.
+verify-tier3: build
+	go test ./internal/store/conformance/ ./internal/store/sqlite/ ./internal/api/ ./internal/core/ ./internal/eval/ ./internal/termmap/ ./internal/daemon/ ./internal/adoption/
+	./$(BINARY) eval --min-recall 0.8
+	@echo "OK: tier-3 automated gate passed"

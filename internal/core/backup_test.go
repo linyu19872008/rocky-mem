@@ -2,8 +2,10 @@ package core_test
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/rocky-mem/rocky-mem/internal/core"
 	"github.com/rocky-mem/rocky-mem/internal/store/sqlite"
@@ -53,5 +55,48 @@ func TestBackupAndRestore(t *testing.T) {
 	}
 	if len(pack.UIDs) == 0 {
 		t.Fatalf("restored search empty: %+v", pack)
+	}
+}
+
+func TestBackupWithRetainPrunes(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "live.db")
+	st, err := sqlite.Open(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	ctx := context.Background()
+	if _, err := st.EnsureLocalUser(ctx); err != nil {
+		t.Fatal(err)
+	}
+	svc := core.NewService(st)
+	bakDir := filepath.Join(dir, "backups")
+	if err := os.MkdirAll(bakDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"rocky-mem-a.db", "rocky-mem-b.db", "rocky-mem-c.db"} {
+		if _, err := svc.Backup(ctx, filepath.Join(bakDir, name)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	now := time.Now()
+	_ = os.Chtimes(filepath.Join(bakDir, "rocky-mem-a.db"), now.Add(-2*time.Hour), now.Add(-2*time.Hour))
+	_ = os.Chtimes(filepath.Join(bakDir, "rocky-mem-b.db"), now.Add(-time.Hour), now.Add(-time.Hour))
+	_ = os.Chtimes(filepath.Join(bakDir, "rocky-mem-c.db"), now, now)
+
+	pruned, err := core.PruneBackups(bakDir, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pruned) != 1 || filepath.Base(pruned[0]) != "rocky-mem-a.db" {
+		t.Fatalf("pruned=%v want rocky-mem-a.db", pruned)
+	}
+	entries, err := os.ReadDir(bakDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 2 {
+		t.Fatalf("left=%d want 2", len(entries))
 	}
 }

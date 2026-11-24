@@ -13,11 +13,10 @@ Memory is state. Experience is a ledger. Both are searchable in one call.
 
 ---
 
-> **Status: Tier-2 (SQLite + daemon + minimal web).** Six MCP tools,
-> `rockymem serve` (`/api/v1` + search/review UI), CLI
-> `review` / `reindex` / `purge` / `export` / `backup` / `restore` / `eval`,
-> term-map expansion, and `make verify-tier2`. PostgreSQL / full Web remain later —
-> see [docs/tier2.md](docs/tier2.md).
+> **Status: Tier-3 (local).** Six MCP tools, `serve` with cookie-auth web
+> (search / review / entry), store conformance suite, backup/eval/term-map.
+> Verify with `make verify-tier3`. See [docs/tier3.md](docs/tier3.md).
+> Not pushed until you ask — PostgreSQL / full Web remain later.
 
 ## Why
 
@@ -102,7 +101,7 @@ they fail from applying it outside its conditions.
   via discovery files next to the DB (same `--dsn`).
 - **Two knowledge types** — versioned memory with stable lineages; an experience
   ledger with trust states, conflict detection and falsification.
-- **CLI ops** — `review`, `reindex`, `purge`, `export`, `backup`, `restore`, `eval`.
+- **CLI ops** — `review`, `reindex`, `purge`, `export`, `backup`/`make backup`, `restore`, `eval`.
 - **Retrieval** — FTS5 trigram + short-query LIKE + zh→en term-map expansion.
 - **Minimal web** — search debug + review queue on `serve` (loopback).
 - **Idempotent writes** — remember/record content dedupe; memory `rev` CAS.

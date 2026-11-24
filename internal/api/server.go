@@ -40,19 +40,6 @@ func (s *Server) Handler() http.Handler {
 	return mux
 }
 
-func (s *Server) auth(next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if s.Token != "" {
-			got := r.Header.Get("Authorization")
-			if got != "Bearer "+s.Token {
-				writeErr(w, http.StatusUnauthorized, errs.New(errs.Unauthorized, "missing or invalid bearer token", nil))
-				return
-			}
-		}
-		next(w, r)
-	}
-}
-
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }

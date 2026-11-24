@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>{{.Title}}</title>
+  <style>
+    :root { --ink:#1a1a1a; --muted:#5c5c5c; --line:#d8d2c4; --ok:#0a7a3e; --bad:#a40000; --accent:#0b5fff; --warn:#9a6700; }
+    body { margin:0; font:15px/1.45 "IBM Plex Sans", "Segoe UI", sans-serif; background:linear-gradient(160deg,#f6f4ef,#ebe6da); color:var(--ink); min-height:100vh; }
+    header { padding:1.25rem 1.5rem; border-bottom:1px solid var(--line); display:flex; gap:1rem; align-items:baseline; flex-wrap:wrap; }
+    header strong { font-size:1.15rem; }
+    nav a { color:var(--muted); text-decoration:none; margin-right:0.75rem; }
+    main { max-width:920px; margin:0 auto; padding:1.5rem; }
+    h1 { font-size:1.25rem; margin:0 0 0.5rem; }
+    .meta, .field { color:var(--muted); font-size:0.9rem; margin:0.25rem 0; }
+    .panel { background:#fff; border:1px solid var(--line); border-radius:8px; padding:1rem; margin:0.75rem 0; }
+    .panel h2 { margin:0 0 0.5rem; font-size:1rem; }
+    .actions { display:flex; gap:0.4rem; flex-wrap:wrap; margin-top:0.75rem; }
+    button, .btn { padding:0.45rem 0.75rem; border-radius:6px; border:1px solid var(--line); background:#fff; cursor:pointer; font:inherit; text-decoration:none; color:inherit; display:inline-block; }
+    button.ok { background:var(--ok); color:#fff; border-color:var(--ok); }
+    button.bad { background:var(--bad); color:#fff; border-color:var(--bad); }
+    button.warn { background:var(--warn); color:#fff; border-color:var(--warn); }
+    .err { color:var(--bad); }
+    a.peer { color:var(--accent); }
+    pre { white-space:pre-wrap; margin:0; font:13px/1.4 ui-monospace, monospace; }
+    textarea { width:100%; min-height:4rem; margin-top:0.5rem; font:inherit; padding:0.5rem; border:1px solid var(--line); border-radius:6px; }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>rocky-mem</strong>
+    <nav><a href="/">Search</a><a href="/review">Review</a><a href="/entry">Entry</a></nav>
+  </header>
+  <main>
+    <p id="status" class="meta">Loading…</p>
+    <div id="root"></div>
+  </main>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const uid = (params.get('uid') || '').trim();
+    const status = document.getElementById('status');
+    const root = document.getElementById('root');
+
+    async function api(path, body) {
+      const res = await fetch(path, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body || {})
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error((data.error && data.error.message) || res.statusText);
+      return data;
+    }
+
+    function field(label, val) {
+      if (val === undefined || val === null || val === '') return '';
+      return '<div class="field"><b>' + label + ':</b> ' + escapeHtml(String(val)) + '</div>';
+    }
+
+    function escapeHtml(s) {
+      return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    async function load() {
+      if (!uid) {
+        status.textContent = 'Pass ?uid=m_… or e_…';
+        root.innerHTML = '<form id="go"><input name="uid" placeholder="e_… / m_…" style="padding:0.5rem;width:70%"/> <button type="submit">Open</button></form>';
+        document.getElementById('go').onsubmit = (e) => {
+          e.preventDefault();
+          const v = e.target.uid.value.trim();
+          if (v) location.search = '?uid=' + encodeURIComponent(v);
+        };
+        return;
+      }
+      status.textContent = 'Loading ' + uid + '…';
+      try {
+        const data = await api('/api/v1/get', { uid, include_raw: true });
+        status.textContent = data.type + ' · ' + data.uid;
+        const e = data.entry || {};
+        let html = '<h1>' + escapeHtml(e.title || data.uid) + '</h1>';
+        html += field('trust', e.trust);
+        html += field('type', e.exp_type || e.mem_type);
+        html += field('scope', (e.scope || '') + (e.scope_ref ? '/' + e.scope_ref : ''));
+        html += field('confidence', e.confidence);
+        html += field('outcome', e.outcome);
+        html += field('applies_when', e.applies_when);
+        html += field('invalid_when', e.invalid_when);
+        html += field('symptom', e.symptom);
+        html += field('root_cause', e.root_cause);
+        if (e.fix_md) html += '<div class="panel"><h2>Fix</h2><pre>' + escapeHtml(e.fix_md) + '</pre></div>';
+        if (e.body_md) html += '<div class="panel"><h2>Body</h2><pre>' + escapeHtml(e.body_md) + '</pre></div>';
+
+        if (data.related && data.related.length) {
+          html += '<div class="panel"><h2>Conflicts / related</h2><ul>';
+          for (const r of data.related) {
+            html += '<li><a class="peer" href="/entry?uid=' + encodeURIComponent(r.uid) + '">' +
+              escapeHtml(r.uid) + '</a> · ' + escapeHtml(r.relation || '') + ' · ' + escapeHtml(r.title || '') + '</li>';
+          }
+          html += '</ul></div>';
+        }
+
+        if (data.evidence && data.evidence.length) {
+          html += '<div class="panel"><h2>Evidence</h2>';
+          for (const ev of data.evidence) {
+            html += '<div class="field">' + escapeHtml(JSON.stringify(ev)) + '</div>';
+          }
+          html += '</div>';
+        }
+
+        html += '<div class="panel"><h2>Raw JSON</h2><pre id="raw"></pre></div>';
+        html += '<div class="actions" id="actions"></div>';
+        html += '<div class="panel"><h2>Feedback</h2><textarea id="note" placeholder="note (required for wrong)"></textarea><div class="actions" id="fb"></div></div>';
+        root.innerHTML = html;
+        document.getElementById('raw').textContent = JSON.stringify(data, null, 2);
+
+        const actions = document.getElementById('actions');
+        if (data.type === 'experience' && (e.trust === 'proposed' || e.trust === 'contested')) {
+          const a = document.createElement('button'); a.className = 'ok'; a.textContent = 'Approve';
+          a.onclick = async () => { await api('/api/v1/review/approve', { uid: data.uid }); load(); };
+          const b = document.createElement('button'); b.className = 'bad'; b.textContent = 'Reject';
+          b.onclick = async () => { await api('/api/v1/review/reject', { uid: data.uid, reason: 'web-reject' }); load(); };
+          actions.append(a, b);
+        }
+
+        const fb = document.getElementById('fb');
+        for (const outcome of ['helpful', 'wrong', 'stale']) {
+          const btn = document.createElement('button');
+          if (outcome === 'wrong') btn.className = 'warn';
+          btn.textContent = outcome;
+          btn.onclick = async () => {
+            const note = document.getElementById('note').value.trim();
+            await api('/api/v1/feedback', { uid: data.uid, outcome, note });
+            load();
+          };
+          fb.appendChild(btn);
+        }
+      } catch (err) {
+        status.className = 'err';
+        status.textContent = String(err);
+      }
+    }
+    load();
+  </script>
+</body>
+</html>
