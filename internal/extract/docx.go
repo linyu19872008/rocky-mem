@@ -38,6 +38,20 @@ func extractDOCX(data []byte) (string, error) {
 func docxXMLToText(raw []byte) string {
 	dec := xml.NewDecoder(bytes.NewReader(raw))
 	var b strings.Builder
+	var (
+		inTable bool
+		row     []string
+		cell    strings.Builder
+		inCell  bool
+	)
+	flushParaBreak := func() {
+		if inTable {
+			return
+		}
+		if b.Len() > 0 && !strings.HasSuffix(b.String(), "\n") {
+			b.WriteByte('\n')
+		}
+	}
 	for {
 		tok, err := dec.Token()
 		if err != nil {
@@ -46,21 +60,58 @@ func docxXMLToText(raw []byte) string {
 		switch t := tok.(type) {
 		case xml.StartElement:
 			switch t.Name.Local {
-			case "tab":
-				b.WriteByte('\t')
-			case "br", "cr":
-				b.WriteByte('\n')
-			case "p":
+			case "tbl":
+				inTable = true
 				if b.Len() > 0 && !strings.HasSuffix(b.String(), "\n") {
 					b.WriteByte('\n')
 				}
+			case "tr":
+				row = row[:0]
+			case "tc":
+				inCell = true
+				cell.Reset()
+			case "tab":
+				if inCell {
+					cell.WriteByte('\t')
+				} else {
+					b.WriteByte('\t')
+				}
+			case "br", "cr":
+				if inCell {
+					cell.WriteByte(' ')
+				} else {
+					b.WriteByte('\n')
+				}
+			case "p":
+				flushParaBreak()
+			}
+		case xml.EndElement:
+			switch t.Name.Local {
+			case "tc":
+				inCell = false
+				row = append(row, strings.TrimSpace(cell.String()))
+				cell.Reset()
+			case "tr":
+				line := strings.Join(row, "\t")
+				if strings.TrimSpace(line) != "" {
+					b.WriteString(line)
+					b.WriteByte('\n')
+				}
+				row = row[:0]
+			case "tbl":
+				inTable = false
+				b.WriteByte('\n')
 			}
 		case xml.CharData:
 			s := string(t)
 			if strings.TrimSpace(s) == "" && strings.ContainsAny(s, "\n\r") {
 				continue
 			}
-			b.WriteString(s)
+			if inCell {
+				cell.WriteString(s)
+			} else {
+				b.WriteString(s)
+			}
 		}
 	}
 	return collapseBlankLines(b.String())

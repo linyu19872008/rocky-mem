@@ -585,8 +585,59 @@
   margin: 0.35rem 0 0;
   font-size: 0.88rem;
 }
-.ingest-compare pre {
-  max-height: 18rem;
+.ingest-compare pre,
+.ingest-single pre,
+.redact-diff {
+  max-height: 22rem;
+}
+
+.ingest-single,
+.ingest-diff {
+  margin-top: 0.75rem;
+}
+.ingest-single h4,
+.ingest-diff h4 {
+  margin: 0 0 0.4rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+.ingest-body {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.85rem;
+}
+
+.redact-diff {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.85rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow: auto;
+  font: 12.5px/1.45 var(--mono);
+  margin: 0;
+}
+.diff-eq {
+  color: var(--ink);
+}
+.diff-del {
+  background: color-mix(in srgb, #c0392b 18%, transparent);
+  color: color-mix(in srgb, #c0392b 85%, var(--ink));
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+  border-radius: 2px;
+  padding: 0 0.1em;
+}
+.diff-ins {
+  background: color-mix(in srgb, #1a7f4b 16%, transparent);
+  color: color-mix(in srgb, #1a7f4b 90%, var(--ink));
+  text-decoration: none;
+  border-radius: 2px;
+  padding: 0 0.15em;
+  font-weight: 600;
 }
 
 .drop-zone {

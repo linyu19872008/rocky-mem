@@ -5,6 +5,7 @@ import { api, ApiRequestError } from "../lib/api";
 import { PageHeader } from "../components/PageHeader";
 import { DataCard } from "../components/DataCard";
 import { Button } from "../components/Button";
+import { RedactDiff, type DiffSegment } from "../components/RedactDiff";
 
 type Preview = {
   filename?: string;
@@ -14,12 +15,15 @@ type Preview = {
   chunk_count?: number;
   original: string;
   redacted: string;
+  segments?: DiffSegment[];
+  spans?: Array<{ rule: string; start: number; end: number; original: string; replacement: string }>;
   hits?: Record<string, number>;
   sensitivity_level: number;
   rejected: boolean;
   reject_why?: string;
   rule_pack: string;
   notice?: string;
+  unchanged?: boolean;
 };
 
 type ConfirmResult = {
@@ -145,6 +149,12 @@ export function IngestPage() {
   }
 
   const hitEntries = preview?.hits ? Object.entries(preview.hits) : [];
+  const unchanged = Boolean(preview?.unchanged) || hitEntries.length === 0;
+  const segments = preview?.segments?.length
+    ? preview.segments
+    : preview
+      ? ([{ kind: "eq", text: preview.original }] as DiffSegment[])
+      : [];
 
   return (
     <>
@@ -214,20 +224,23 @@ export function IngestPage() {
             </b>
             <input value={title} onChange={(e) => setTitle(e.target.value)} disabled={busy} />
           </label>
-          <div className="compare ingest-compare">
-            <div>
+
+          {unchanged ? (
+            <div className="ingest-single">
               <h4>
-                <FormattedMessage id="ingest.original" />
+                <FormattedMessage id="ingest.extracted" />
               </h4>
-              <pre>{preview.original}</pre>
+              <pre className="mono ingest-body">{preview.original}</pre>
             </div>
-            <div>
+          ) : (
+            <div className="ingest-diff">
               <h4>
-                <FormattedMessage id="ingest.redacted" />
+                <FormattedMessage id="ingest.diff" />
               </h4>
-              <pre>{preview.redacted}</pre>
+              <RedactDiff segments={segments} />
             </div>
-          </div>
+          )}
+
           <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.75rem" }}>
             <Button variant="primary" disabled={busy || preview.rejected} onClick={() => void onConfirm()}>
               <FormattedMessage id="ingest.confirm" />

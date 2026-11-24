@@ -35,6 +35,50 @@ func TestExtractDOCX(t *testing.T) {
 	}
 }
 
+func TestExtractDOCXTableTSV(t *testing.T) {
+	xml := `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:tbl>
+      <w:tr>
+        <w:tc><w:p><w:r><w:t>部门</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>技术部</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>姓名</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>林宇</w:t></w:r></w:p></w:tc>
+      </w:tr>
+      <w:tr>
+        <w:tc><w:p><w:r><w:t>日期</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>2026-10-30</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>时长</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>2</w:t></w:r></w:p></w:tc>
+      </w:tr>
+    </w:tbl>
+  </w:body>
+</w:document>`
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	w, err := zw.Create("word/document.xml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.Write([]byte(xml)); err != nil {
+		t.Fatal(err)
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	res, err := extract.FromBytes("sheet.docx", buf.Bytes())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(res.Text, "部门\t技术部\t姓名\t林宇") {
+		t.Fatalf("expected TSV row: %q", res.Text)
+	}
+	if !strings.Contains(res.Text, "日期\t2026-10-30\t时长\t2") {
+		t.Fatalf("expected second row: %q", res.Text)
+	}
+}
+
 func TestExtractPlainSecretSafe(t *testing.T) {
 	res, err := extract.FromBytes("a.txt", []byte("hello\nworld\n"))
 	if err != nil {

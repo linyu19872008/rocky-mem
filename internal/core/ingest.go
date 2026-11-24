@@ -20,30 +20,24 @@ type IngestPreviewInput struct {
 	ContentType   string `json:"content_type,omitempty"`
 }
 
-// IngestChunkPreview is one redacted block for UI.
-type IngestChunkPreview struct {
-	Index    int            `json:"index"`
-	Original string         `json:"original"`
-	Redacted string         `json:"redacted"`
-	Hits     map[string]int `json:"hits,omitempty"`
-}
-
 // IngestPreviewResult shows extraction + redaction before persist.
 type IngestPreviewResult struct {
-	Filename    string               `json:"filename,omitempty"`
-	Format      string               `json:"format"`
-	ContentHash string               `json:"content_hash"`
-	CharCount   int                  `json:"char_count"`
-	ChunkCount  int                  `json:"chunk_count"`
-	Original    string               `json:"original"`
-	Redacted    string               `json:"redacted"`
-	Chunks      []IngestChunkPreview `json:"chunks,omitempty"`
-	Hits        map[string]int       `json:"hits,omitempty"`
-	Level       int                  `json:"sensitivity_level"`
-	Rejected    bool                 `json:"rejected"`
-	RejectWhy   string               `json:"reject_why,omitempty"`
-	RulePack    string               `json:"rule_pack"`
-	Notice      string               `json:"notice,omitempty"`
+	Filename    string           `json:"filename,omitempty"`
+	Format      string           `json:"format"`
+	ContentHash string           `json:"content_hash"`
+	CharCount   int              `json:"char_count"`
+	ChunkCount  int              `json:"chunk_count"`
+	Original    string           `json:"original"`
+	Redacted    string           `json:"redacted"`
+	Segments    []redact.Segment `json:"segments,omitempty"`
+	Spans       []redact.Span    `json:"spans,omitempty"`
+	Hits        map[string]int   `json:"hits,omitempty"`
+	Level       int              `json:"sensitivity_level"`
+	Rejected    bool             `json:"rejected"`
+	RejectWhy   string           `json:"reject_why,omitempty"`
+	RulePack    string           `json:"rule_pack"`
+	Notice      string           `json:"notice,omitempty"`
+	Unchanged   bool             `json:"unchanged"`
 }
 
 // IngestConfirmInput is phase-2: persist already-previewed redacted text.
@@ -65,36 +59,17 @@ func (s *Service) IngestPreview(_ context.Context, in IngestPreviewInput) (*Inge
 	if err != nil {
 		return nil, mapExtractErr(err)
 	}
+	rr := redact.Apply(ex.Text)
 	chunks := extract.Chunk(ex.Text, 3500)
-	mergedHits := map[string]int{}
-	var previews []IngestChunkPreview
-	var redParts []string
-	level := 2
-	rejected := false
-	rejectWhy := ""
-	rulePack := redact.RulePackVersion
-	for i, ch := range chunks {
-		rr := redact.Apply(ch)
-		rulePack = rr.RulePack
-		if rr.Level > level {
-			level = rr.Level
-		}
-		if rr.Rejected {
-			rejected = true
-			rejectWhy = rr.RejectWhy
-		}
-		for k, n := range rr.Hits {
-			mergedHits[k] += n
-		}
-		previews = append(previews, IngestChunkPreview{
-			Index: i + 1, Original: ch, Redacted: rr.Text, Hits: rr.Hits,
-		})
-		redParts = append(redParts, rr.Text)
-	}
-	redacted := strings.Join(redParts, "\n\n")
 	notice := ""
 	if ex.Format != extract.FormatPlain {
 		notice = "extracted plain text from " + string(ex.Format) + "; original binary is never shown"
+	}
+	if rr.Unchanged {
+		if notice != "" {
+			notice += ". "
+		}
+		notice += "no redaction hits — preview equals extracted text"
 	}
 	return &IngestPreviewResult{
 		Filename:    filename,
@@ -103,14 +78,16 @@ func (s *Service) IngestPreview(_ context.Context, in IngestPreviewInput) (*Inge
 		CharCount:   ex.CharCount,
 		ChunkCount:  len(chunks),
 		Original:    ex.Text,
-		Redacted:    redacted,
-		Chunks:      previews,
-		Hits:        mergedHits,
-		Level:       level,
-		Rejected:    rejected,
-		RejectWhy:   rejectWhy,
-		RulePack:    rulePack,
+		Redacted:    rr.Text,
+		Segments:    rr.Segments,
+		Spans:       rr.Spans,
+		Hits:        rr.Hits,
+		Level:       rr.Level,
+		Rejected:    rr.Rejected,
+		RejectWhy:   rr.RejectWhy,
+		RulePack:    rr.RulePack,
 		Notice:      notice,
+		Unchanged:   rr.Unchanged,
 	}, nil
 }
 
@@ -165,7 +142,6 @@ func resolveIngestBytes(in IngestPreviewInput) ([]byte, string, error) {
 	if in.ContentBase64 != "" {
 		raw, err := base64.StdEncoding.DecodeString(in.ContentBase64)
 		if err != nil {
-			// try raw URL encoding without padding issues
 			raw, err = base64.RawStdEncoding.DecodeString(in.ContentBase64)
 			if err != nil {
 				return nil, "", errs.New(errs.FieldInvalid, "invalid content_base64", nil)

@@ -40,6 +40,12 @@ func TestIngestPreviewAndConfirm(t *testing.T) {
 	if strings.Contains(prev.Redacted, "supersecrettoken123") {
 		t.Fatalf("secret leaked in redacted: %s", prev.Redacted)
 	}
+	if prev.Unchanged {
+		t.Fatal("expected changed when secret hit")
+	}
+	if len(prev.Spans) < 1 || len(prev.Segments) < 2 {
+		t.Fatalf("expected spans/segments: spans=%d segs=%d", len(prev.Spans), len(prev.Segments))
+	}
 	rec, err := svc.IngestConfirm(ctx, core.IngestConfirmInput{
 		Redacted: prev.Redacted, Filename: "note.md", Title: "Ingest secret sample", Format: prev.Format,
 	})
@@ -80,6 +86,9 @@ func TestIngestPreviewDOCXBase64(t *testing.T) {
 	}
 	if !strings.Contains(prev.Original, "加班") {
 		t.Fatalf("missing extracted text: %q", prev.Original)
+	}
+	if !prev.Unchanged {
+		t.Fatalf("expected unchanged for clean docx: hits=%v", prev.Hits)
 	}
 }
 
