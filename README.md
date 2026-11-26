@@ -21,7 +21,7 @@ Memory is state. Experience is a ledger. Both are searchable in one call.
 
 ---
 
-> **Status: Solo usable — v0.2.0.** Six MCP tools, `serve` with cookie-auth React
+> **Status: Solo usable — v0.2.1.** Six MCP tools, `serve` with cookie-auth React
 > UI (en/zh-CN, light/dark), Library browse, remember/record forms, file ingest
 > (docx/xlsx/pdf text) storing **corpus** with an optional distill step,
 > conflict resolve, backup/eval/term-map, store conformance.
