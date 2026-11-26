@@ -9,6 +9,23 @@ Until `1.0.0`, minor versions may include breaking changes. Breaking changes are
 always marked `!` in the commit subject and listed under **Changed** with a
 migration note.
 
+## [0.2.2] — 2026-11-27
+
+### Fixed
+
+- **`go install` compiles again.** `internal/web` embeds `dist/`, and `go install`
+  cannot run `pnpm build` first, so installing from source failed while the
+  release binaries worked. The built SPA (386 KB, source maps excluded) is
+  tracked, and `make web` still refreshes it.
+- **The store lock builds on Windows.** `syscall.Flock` does not exist there; the
+  lock now has a `LockFileEx` implementation behind the same contract, so all
+  six release targets compile.
+
+### Note
+
+`v0.2.1` was published and then moved; module proxies cache a version forever, so
+`go install ...@v0.2.1` keeps serving the pre-fix zip. Use `v0.2.2` or later.
+
 ## [0.2.1] — 2026-11-27
 
 ### Added
