@@ -8,6 +8,13 @@
 
 Memory is state. Experience is a ledger. Both are searchable in one call.
 
+[![ci](https://github.com/linyu19872008/rocky-mem/actions/workflows/ci.yml/badge.svg)](https://github.com/linyu19872008/rocky-mem/actions/workflows/ci.yml)
+[![release](https://img.shields.io/github/v/release/linyu19872008/rocky-mem?sort=semver)](https://github.com/linyu19872008/rocky-mem/releases)
+[![license](https://img.shields.io/github/license/linyu19872008/rocky-mem)](LICENSE)
+[![go](https://img.shields.io/github/go-mod/go-version/linyu19872008/rocky-mem)](go.mod)
+[![skill](https://img.shields.io/npm/v/rocky-mem-skill?label=skill)](https://www.npmjs.com/package/rocky-mem-skill)
+
+
 [Design](design/DESIGN.md) · [Schema](design/schema.md) · [MCP tools](docs/mcp-tools.md) · [ADRs](design/adr/) · [中文](README.zh-CN.md)
 
 </div>
@@ -155,6 +162,25 @@ One daemon owns the database. MCP clients are thin proxies — Cursor and DSH ea
 spawn their own subprocess, and a subprocess must never open the database
 directly. See [ADR-0005](design/adr/0005-technology-stack.md).
 
+## Install
+
+```bash
+go install github.com/linyu19872008/rocky-mem/cmd/rockymem@latest
+```
+
+Or download a binary from [Releases](https://github.com/linyu19872008/rocky-mem/releases):
+darwin / linux / windows, amd64 / arm64, with `checksums.txt`. The binary is
+static (CGO disabled) and embeds the web UI, so it needs nothing else.
+
+```bash
+rockymem init  --dsn sqlite://$HOME/.local/share/rocky-mem/rocky-mem.db
+rockymem serve --dsn sqlite://$HOME/.local/share/rocky-mem/rocky-mem.db
+# MCP over stdio:  rockymem mcp
+# MCP over HTTP:   http://127.0.0.1:7432/mcp   (bearer token beside the DB)
+```
+
+Requires Go 1.26+ **only** for `go install`; the release binaries do not.
+
 ## Quick start (this repo)
 
 ```bash
@@ -170,7 +196,6 @@ make verify-tier1
 Project MCP config: [`.cursor/mcp.json`](.cursor/mcp.json) (same DSN as seed/serve).
 
 ```bash
-# optional: brew install later
 rockymem init --dsn sqlite://~/.local/share/rocky-mem/rocky-mem.db
 rockymem serve --dsn sqlite://~/.local/share/rocky-mem/rocky-mem.db
 ```

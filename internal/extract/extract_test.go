@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rocky-mem/rocky-mem/internal/extract"
+	"github.com/linyu19872008/rocky-mem/internal/extract"
 )
 
 func TestDetectRejectsDOCXAsText(t *testing.T) {

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/rocky-mem/rocky-mem/internal/store"
+	"github.com/linyu19872008/rocky-mem/internal/store"
 )
 
 func (db *DB) GetActiveMemoryByLineage(ctx context.Context, lineage string) (*store.Memory, error) {

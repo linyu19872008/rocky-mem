@@ -4,10 +4,10 @@ import (
 	"context"
 	"strings"
 
-	"github.com/rocky-mem/rocky-mem/internal/errs"
-	"github.com/rocky-mem/rocky-mem/internal/store"
-	"github.com/rocky-mem/rocky-mem/internal/textnorm"
-	"github.com/rocky-mem/rocky-mem/internal/uid"
+	"github.com/linyu19872008/rocky-mem/internal/errs"
+	"github.com/linyu19872008/rocky-mem/internal/store"
+	"github.com/linyu19872008/rocky-mem/internal/textnorm"
+	"github.com/linyu19872008/rocky-mem/internal/uid"
 )
 
 // RememberInput matches mem_remember.
@@ -28,12 +28,12 @@ type RememberInput struct {
 
 // RememberResult is the write acknowledgement.
 type RememberResult struct {
-	UID           string `json:"uid"`
-	Lineage       string `json:"lineage"`
-	Status        string `json:"status"`
-	Rev           int    `json:"rev"`
-	SupersededUID string `json:"superseded_uid,omitempty"`
-	ReviewRequired bool  `json:"review_required"`
+	UID            string `json:"uid"`
+	Lineage        string `json:"lineage"`
+	Status         string `json:"status"`
+	Rev            int    `json:"rev"`
+	SupersededUID  string `json:"superseded_uid,omitempty"`
+	ReviewRequired bool   `json:"review_required"`
 }
 
 // Remember upserts a memory row.

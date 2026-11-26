@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/rocky-mem/rocky-mem/internal/store"
-	"github.com/rocky-mem/rocky-mem/internal/textnorm"
-	"github.com/rocky-mem/rocky-mem/internal/uid"
+	"github.com/linyu19872008/rocky-mem/internal/store"
+	"github.com/linyu19872008/rocky-mem/internal/textnorm"
+	"github.com/linyu19872008/rocky-mem/internal/uid"
 )
 
 // OpenFunc constructs a fresh empty Store for one test case. Caller closes it.

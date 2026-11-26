@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/rocky-mem/rocky-mem/internal/adoption"
+	"github.com/linyu19872008/rocky-mem/internal/adoption"
 )
 
 func repoRoot(t *testing.T) string {

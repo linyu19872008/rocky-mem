@@ -5,9 +5,9 @@ import (
 	"encoding/base64"
 	"strings"
 
-	"github.com/rocky-mem/rocky-mem/internal/errs"
-	"github.com/rocky-mem/rocky-mem/internal/extract"
-	"github.com/rocky-mem/rocky-mem/internal/redact"
+	"github.com/linyu19872008/rocky-mem/internal/errs"
+	"github.com/linyu19872008/rocky-mem/internal/extract"
+	"github.com/linyu19872008/rocky-mem/internal/redact"
 )
 
 // IngestPreviewInput is phase-1 of two-phase ingest.

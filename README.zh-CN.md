@@ -8,6 +8,13 @@
 
 记忆是状态，经验是台账。一次调用，两者都能检索。
 
+[![ci](https://github.com/linyu19872008/rocky-mem/actions/workflows/ci.yml/badge.svg)](https://github.com/linyu19872008/rocky-mem/actions/workflows/ci.yml)
+[![release](https://img.shields.io/github/v/release/linyu19872008/rocky-mem?sort=semver)](https://github.com/linyu19872008/rocky-mem/releases)
+[![license](https://img.shields.io/github/license/linyu19872008/rocky-mem)](LICENSE)
+[![go](https://img.shields.io/github/go-mod/go-version/linyu19872008/rocky-mem)](go.mod)
+[![skill](https://img.shields.io/npm/v/rocky-mem-skill?label=skill)](https://www.npmjs.com/package/rocky-mem-skill)
+
+
 [设计文档](design/DESIGN.md) · [数据模型](design/schema.md) · [MCP 工具](docs/mcp-tools.md) · [决策记录](design/adr/) · [English](README.md)
 
 </div>
@@ -111,6 +118,25 @@ agent 在开始工作前调用一次：
 
 - **团队模式** — 共享鉴权、membership、多写者并发、PG 备份。属于未来规划，不在当前实现范围，见 `design/adr/0007-solo-only-scope.md`。
 - **MySQL**、托管 SaaS、多租户隔离。
+
+## 安装
+
+```bash
+go install github.com/linyu19872008/rocky-mem/cmd/rockymem@latest
+```
+
+或者直接从 [Releases](https://github.com/linyu19872008/rocky-mem/releases) 下载二进制：
+darwin / linux / windows × amd64 / arm64，附 `checksums.txt`。二进制是静态的
+（CGO 关闭）且内嵌 Web UI，不需要额外依赖。
+
+```bash
+rockymem init  --dsn sqlite://$HOME/.local/share/rocky-mem/rocky-mem.db
+rockymem serve --dsn sqlite://$HOME/.local/share/rocky-mem/rocky-mem.db
+# stdio MCP:  rockymem mcp
+# HTTP  MCP:  http://127.0.0.1:7432/mcp   （token 在数据库旁边）
+```
+
+只有 `go install` 需要 Go 1.26+；下载的发布二进制不需要。
 
 ## 本仓库快速开始
 

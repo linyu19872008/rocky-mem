@@ -4,9 +4,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/rocky-mem/rocky-mem/internal/store"
-	"github.com/rocky-mem/rocky-mem/internal/store/conformance"
-	"github.com/rocky-mem/rocky-mem/internal/store/sqlite"
+	"github.com/linyu19872008/rocky-mem/internal/store"
+	"github.com/linyu19872008/rocky-mem/internal/store/conformance"
+	"github.com/linyu19872008/rocky-mem/internal/store/sqlite"
 )
 
 func TestSQLiteConformance(t *testing.T) {

@@ -5,10 +5,10 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/linyu19872008/rocky-mem/internal/core"
+	"github.com/linyu19872008/rocky-mem/internal/errs"
+	"github.com/linyu19872008/rocky-mem/internal/version"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/rocky-mem/rocky-mem/internal/core"
-	"github.com/rocky-mem/rocky-mem/internal/errs"
-	"github.com/rocky-mem/rocky-mem/internal/version"
 )
 
 // New builds an MCP server bound to a MemAPI (local Service or HTTP client).

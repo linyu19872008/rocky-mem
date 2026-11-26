@@ -1,0 +1,53 @@
+name: Bug report
+description: Something behaves differently from the contract or the documentation.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please run `rockymem doctor --dsn <your DSN>` first; it answers most
+        "search is empty" and "index drifted" questions on its own.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: The symptom, ideally the exact error text or the CLI output.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. rockymem serve --dsn sqlite:///tmp/t.db
+        2. mem_search with query "..."
+        3. returns ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `rockymem version`, plus the DSH version if the bug is in the plugin.
+    validations:
+      required: true
+  - type: dropdown
+    id: store
+    attributes:
+      label: Store
+      options: [SQLite, PostgreSQL]
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: doctor output
+      render: json
+    validations:
+      required: false

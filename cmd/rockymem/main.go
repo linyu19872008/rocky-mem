@@ -1,6 +1,6 @@
 package main
 
-import "github.com/rocky-mem/rocky-mem/internal/cli"
+import "github.com/linyu19872008/rocky-mem/internal/cli"
 
 func main() {
 	cli.Execute()

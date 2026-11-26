@@ -6,21 +6,21 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rocky-mem/rocky-mem/internal/core"
+	"github.com/linyu19872008/rocky-mem/internal/core"
 )
 
 // WorkflowResult is the outcome of a Tier-0 adoption simulation.
 type WorkflowResult struct {
-	StartedAt      int64    `json:"started_at"`
-	ContextUIDs    []string `json:"context_uids"`
-	SearchUIDs     []string `json:"search_uids"`
-	RememberUID    string   `json:"remember_uid"`
-	RecordUID      string   `json:"record_uid"`
-	RecordTrust    string   `json:"record_trust"`
-	FeedbackEffect string   `json:"feedback_effect"`
-	FoundAfterWrite bool    `json:"found_after_write"`
-	GetType        string   `json:"get_type"`
-	Steps          []string `json:"steps"`
+	StartedAt       int64    `json:"started_at"`
+	ContextUIDs     []string `json:"context_uids"`
+	SearchUIDs      []string `json:"search_uids"`
+	RememberUID     string   `json:"remember_uid"`
+	RecordUID       string   `json:"record_uid"`
+	RecordTrust     string   `json:"record_trust"`
+	FeedbackEffect  string   `json:"feedback_effect"`
+	FoundAfterWrite bool     `json:"found_after_write"`
+	GetType         string   `json:"get_type"`
+	Steps           []string `json:"steps"`
 }
 
 // RunWorkflow exercises the adoption loop against a core.Service:
@@ -50,9 +50,9 @@ func RunWorkflow(ctx context.Context, svc *core.Service, cwd, marker string) (*W
 	step("mem_search:initial")
 
 	rem, err := svc.Remember(ctx, core.RememberInput{
-		Title: "tier0 adoption preference",
-		Body:  "Tier-0 workflow marker preference: " + marker,
-		MemKey: "tier0_adoption_" + sanitizeKey(marker),
+		Title:   "tier0 adoption preference",
+		Body:    "Tier-0 workflow marker preference: " + marker,
+		MemKey:  "tier0_adoption_" + sanitizeKey(marker),
 		MemType: "pref", Scope: "session", Cwd: cwd, Pinned: true,
 	})
 	if err != nil {

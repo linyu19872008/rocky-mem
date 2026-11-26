@@ -3,8 +3,8 @@ package api
 import (
 	"encoding/json"
 
-	"github.com/rocky-mem/rocky-mem/internal/store"
-	"github.com/rocky-mem/rocky-mem/internal/version"
+	"github.com/linyu19872008/rocky-mem/internal/store"
+	"github.com/linyu19872008/rocky-mem/internal/version"
 )
 
 // doctorPayload decorates the store report with what a client needs to decide

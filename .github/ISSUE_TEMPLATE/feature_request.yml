@@ -1,0 +1,34 @@
+name: Feature request
+description: Propose a capability, a retrieval improvement, or a client integration.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This project has opinions (see `design/DESIGN.md` §3). The strongest
+        proposals say which principle they serve, or which one they argue with.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What can't you do today, or what goes wrong repeatedly?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Including "do nothing" and any workaround you already tried.
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Surface
+      options: [Retrieval, Write path / gates, MCP, Web UI, CLI, Client integration, Docs]
+    validations:
+      required: true

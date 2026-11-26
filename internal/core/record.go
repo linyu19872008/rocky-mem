@@ -4,10 +4,10 @@ import (
 	"context"
 	"strings"
 
-	"github.com/rocky-mem/rocky-mem/internal/errs"
-	"github.com/rocky-mem/rocky-mem/internal/store"
-	"github.com/rocky-mem/rocky-mem/internal/textnorm"
-	"github.com/rocky-mem/rocky-mem/internal/uid"
+	"github.com/linyu19872008/rocky-mem/internal/errs"
+	"github.com/linyu19872008/rocky-mem/internal/store"
+	"github.com/linyu19872008/rocky-mem/internal/textnorm"
+	"github.com/linyu19872008/rocky-mem/internal/uid"
 )
 
 // EvidenceIn is one evidence item on mem_record.
@@ -145,7 +145,7 @@ func (s *Service) Record(ctx context.Context, in RecordInput) (*RecordResult, er
 			UID: uid.Experience(), ExpType: in.ExpType, Scope: scope, ScopeRef: ref,
 			Title: title, Symptom: symptom,
 			SymptomKey: textnorm.SymptomKey(symptom, in.Lang),
-			RootCause: textnorm.NFC(in.RootCause), FixMD: fix,
+			RootCause:  textnorm.NFC(in.RootCause), FixMD: fix,
 			FixHash: textnorm.Hash(fix), AppliesWhen: textnorm.NFC(in.AppliesWhen),
 			InvalidWhen: textnorm.NFC(in.InvalidWhen), Outcome: in.Outcome,
 			Confidence: in.Confidence, Lang: in.Lang, Sensitivity: 2, ActorID: &actor,

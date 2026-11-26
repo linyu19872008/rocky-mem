@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/rocky-mem/rocky-mem/db"
-	"github.com/rocky-mem/rocky-mem/internal/store"
+	"github.com/linyu19872008/rocky-mem/db"
+	"github.com/linyu19872008/rocky-mem/internal/store"
 
 	_ "modernc.org/sqlite"
 )

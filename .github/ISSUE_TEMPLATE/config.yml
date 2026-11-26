@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security report
+    url: https://github.com/linyu19872008/rocky-mem/security/advisories/new
+    about: Please report vulnerabilities privately, not in a public issue.
+  - name: Design and contracts
+    url: https://github.com/linyu19872008/rocky-mem/blob/main/docs/contract.md
+    about: Read the client contract before proposing a change to an endpoint or tool.

@@ -5,9 +5,21 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  test:
-    runs-on: ubuntu-latest
+  matrix:
+    name: matrix
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
 
@@ -30,13 +42,30 @@ jobs:
       - name: Build web assets
         run: |
           pnpm --dir web install --frozen-lockfile
+          pnpm --dir web typecheck
+          pnpm --dir web i18n:check
           pnpm --dir web build
+
+      - name: Format
+        run: |
+          unformatted="$(gofmt -l ./cmd ./internal)"
+          if [ -n "$unformatted" ]; then
+            echo "gofmt needed on:"; echo "$unformatted"; exit 1
+          fi
 
       - name: Vet
         run: go vet ./...
 
+      # Race detection on Linux only: macOS runners are noticeably slower and
+      # the concurrency-sensitive paths (daemon, registry, SQLite) are the same.
       - name: Test
-        run: go test ./...
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            go test -race ./...
+          else
+            go test ./...
+          fi
 
       - name: Skill / contract / error-code agreement
         run: node scripts/check-skill-versions.mjs
@@ -45,6 +74,7 @@ jobs:
         run: go build -o bin/rockymem ./cmd/rockymem
 
       - name: Smoke the MCP surface (stdio + HTTP)
+        if: runner.os == 'Linux'
         run: |
           set -euo pipefail
           DSN="sqlite://$PWD/.local/ci.db"
@@ -64,3 +94,16 @@ jobs:
             -H "Accept: application/json, text/event-stream" \
             -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' \
             | grep -q 'mem_search'
+
+  # A stable check name for branch protection: matrix legs report
+  # "test (ubuntu-latest) / test (macos-latest)", which changes whenever the matrix does.
+  test:
+    name: test
+    needs: [matrix]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Matrix gate
+        run: |
+          echo "matrix result: ${{ needs.matrix.result }}"
+          [ "${{ needs.matrix.result }}" = "success" ] || exit 1

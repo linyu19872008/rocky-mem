@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rocky-mem/rocky-mem/internal/core"
-	"github.com/rocky-mem/rocky-mem/internal/store/sqlite"
+	"github.com/linyu19872008/rocky-mem/internal/core"
+	"github.com/linyu19872008/rocky-mem/internal/store/sqlite"
 )
 
 func TestTermMapExpandsChineseQuery(t *testing.T) {
@@ -23,13 +23,13 @@ func TestTermMapExpandsChineseQuery(t *testing.T) {
 	}
 	svc := core.NewService(st)
 	_, err = svc.Record(ctx, core.RecordInput{
-		Title: "ConfigMap hot reload lost during rollout",
-		ExpType: "pitfall",
-		Symptom: "config reverts after kubectl rollout restart",
-		Fix: "checksum annotation",
+		Title:       "ConfigMap hot reload lost during rollout",
+		ExpType:     "pitfall",
+		Symptom:     "config reverts after kubectl rollout restart",
+		Fix:         "checksum annotation",
 		AppliesWhen: "K8s file-mounted ConfigMap",
 		InvalidWhen: "API read",
-		Outcome: "success", Confidence: 0.9, Scope: "global",
+		Outcome:     "success", Confidence: 0.9, Scope: "global",
 		Evidence: []core.EvidenceIn{{Type: "quote", Text: "observed stale mount"}},
 	})
 	if err != nil {
@@ -60,12 +60,12 @@ func TestShortCJKLikeFallback(t *testing.T) {
 	}
 	svc := core.NewService(st)
 	_, err = svc.Record(ctx, core.RecordInput{
-		Title: "探针配置不当导致 CrashLoop",
-		ExpType: "pitfall",
-		Symptom: "liveness 探针过早",
-		Fix: "startupProbe",
+		Title:       "探针配置不当导致 CrashLoop",
+		ExpType:     "pitfall",
+		Symptom:     "liveness 探针过早",
+		Fix:         "startupProbe",
 		AppliesWhen: "K8s JVM",
-		Outcome: "success", Confidence: 0.9, Scope: "global",
+		Outcome:     "success", Confidence: 0.9, Scope: "global",
 		Evidence: []core.EvidenceIn{{Type: "quote", Text: "CrashLoop from probe"}},
 	})
 	if err != nil {
