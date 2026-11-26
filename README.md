@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="assets/brand/icon-512.png" width="132" alt="Rocky, the rocky-mem mascot">
+
 # rocky-mem
 
 **A memory and experience service for coding agents.** Local-first, solo by design.

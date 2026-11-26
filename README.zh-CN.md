@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="assets/brand/icon-512.png" width="132" alt="Rocky，rocky-mem 吉祥物">
+
 # rocky-mem
 
 **面向编码 agent 的记忆与经验服务。** 本地优先，只做单人模式。
