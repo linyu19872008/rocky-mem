@@ -9,6 +9,23 @@ Until `1.0.0`, minor versions may include breaking changes. Breaking changes are
 always marked `!` in the commit subject and listed under **Changed** with a
 migration note.
 
+## [0.2.1] — 2026-11-27
+
+### Added
+
+- **Release binaries.** GoReleaser builds static binaries for
+  darwin/linux/windows × amd64/arm64 with `checksums.txt`, triggered by a tag.
+- Governance: code of conduct, CODEOWNERS, dependabot, issue forms, and a PR
+  template that asks about contract impact.
+- CI now runs on Linux **and macOS**, uses `-race` on Linux, checks `gofmt`, and
+  runs the web `typecheck` and `i18n:check` that Vite never enforced.
+
+### Changed
+
+- **Module path** is `github.com/linyu19872008/rocky-mem`, matching the
+  repository, so `go install` and third-party imports resolve.
+- README gained badges and an Install section.
+
 ## [0.2.0] — 2026-11-27
 
 **This release supersedes the unreleased 0.1.3 and 0.1.4 notes below** — those
