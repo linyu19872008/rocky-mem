@@ -879,3 +879,55 @@ textarea.field-control {
     transform: none;
   }
 }
+
+/* Conflict adjudication panel */
+.resolve-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.75rem 0;
+}
+.resolve-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.65rem;
+  border: 1px solid var(--line, #d8d8d8);
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+}
+.resolve-action.is-on {
+  border-color: var(--accent, #2563eb);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent, #2563eb) 22%, transparent);
+}
+.resolve-action .meta {
+  opacity: 0.6;
+  font-variant-numeric: tabular-nums;
+}
+.resolve-conditions {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+}
+.resolve-conditions label,
+.resolve-days,
+.resolve-note {
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.9rem;
+}
+.resolve-conditions input,
+.resolve-days input,
+.resolve-note textarea {
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--line, #d8d8d8);
+  border-radius: 8px;
+  font: inherit;
+  background: var(--surface, #fff);
+  color: inherit;
+}
+.resolve-note {
+  margin: 0.75rem 0 0.5rem;
+}

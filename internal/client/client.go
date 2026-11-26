@@ -127,9 +127,9 @@ func (c *Client) ReviewReject(ctx context.Context, uid, reason string) (*core.Re
 	return &out, nil
 }
 
-func (c *Client) ReviewResolve(ctx context.Context, keepUID, action string) (*core.ReviewResolveResult, error) {
+func (c *Client) ReviewResolve(ctx context.Context, in core.ReviewResolveInput) (*core.ReviewResolveResult, error) {
 	var out core.ReviewResolveResult
-	if err := c.post(ctx, "/api/v1/review/resolve", map[string]string{"uid": keepUID, "action": action}, &out); err != nil {
+	if err := c.post(ctx, "/api/v1/review/resolve", in, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil
@@ -143,8 +143,8 @@ func (c *Client) IngestPreview(ctx context.Context, in core.IngestPreviewInput) 
 	return &out, nil
 }
 
-func (c *Client) IngestConfirm(ctx context.Context, in core.IngestConfirmInput) (*core.RecordResult, error) {
-	var out core.RecordResult
+func (c *Client) IngestConfirm(ctx context.Context, in core.IngestConfirmInput) (*core.IngestConfirmResult, error) {
+	var out core.IngestConfirmResult
 	if err := c.post(ctx, "/api/v1/ingest/confirm", in, &out); err != nil {
 		return nil, err
 	}

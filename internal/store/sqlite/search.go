@@ -198,11 +198,19 @@ func (db *DB) Doctor(ctx context.Context) (store.DoctorReport, error) {
 	_ = db.q().QueryRowContext(ctx, `SELECT COUNT(*) FROM memory`).Scan(&rep.MemoryCount)
 	_ = db.q().QueryRowContext(ctx, `SELECT COUNT(*) FROM experience`).Scan(&rep.ExperienceCount)
 
-	rep.SearchDocOK = rep.MemoryDocCount == rep.ActiveMemory && rep.ExpDocCount == rep.IndexableExp
+	// Corpus counters: chunk coverage must match chunks of active sources.
+	if st, err := db.CorpusStats(ctx); err == nil {
+		rep.SourceCount, rep.ActiveSources = st.Sources, st.ActiveSources
+		rep.ChunkCount, rep.ActiveChunks, rep.ChunkDocCount = st.Chunks, st.ActiveChunks, st.ChunkDocs
+	}
+	rep.SearchDocOK = rep.MemoryDocCount == rep.ActiveMemory &&
+		rep.ExpDocCount == rep.IndexableExp &&
+		rep.ChunkDocCount == rep.ActiveChunks
 	if !rep.SearchDocOK {
 		rep.Notices = append(rep.Notices, fmt.Sprintf(
-			"search_doc drift: memory %d/%d experience %d/%d",
+			"search_doc drift: memory %d/%d experience %d/%d chunk %d/%d",
 			rep.MemoryDocCount, rep.ActiveMemory, rep.ExpDocCount, rep.IndexableExp,
+			rep.ChunkDocCount, rep.ActiveChunks,
 		))
 	}
 	return rep, nil

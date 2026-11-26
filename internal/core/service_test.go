@@ -32,17 +32,17 @@ func TestRecordSearchRoundTrip(t *testing.T) {
 	}
 
 	rec, err := svc.Record(ctx, core.RecordInput{
-		Title: "ConfigMap hot reload lost during rollout",
-		ExpType: "pitfall",
-		Symptom: "config reverts after kubectl rollout restart",
-		RootCause: "file-mounted ConfigMap update lag ~60s",
-		Fix: "add checksum annotation on Pod template",
+		Title:       "ConfigMap hot reload lost during rollout",
+		ExpType:     "pitfall",
+		Symptom:     "config reverts after kubectl rollout restart",
+		RootCause:   "file-mounted ConfigMap update lag ~60s",
+		Fix:         "add checksum annotation on Pod template",
 		AppliesWhen: "K8s + file-mounted ConfigMap + short rollout window",
 		InvalidWhen: "config read via ConfigMap API",
-		Outcome: "success",
-		Confidence: 0.85,
-		Scope: "global",
-		Evidence: []core.EvidenceIn{{Type: "quote", Text: "kubectl rollout restart still lost ConfigMap mount"}},
+		Outcome:     "success",
+		Confidence:  0.85,
+		Scope:       "global",
+		Evidence:    []core.EvidenceIn{{Type: "quote", Text: "kubectl rollout restart still lost ConfigMap mount"}},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -71,8 +71,8 @@ func TestRecordSearchRoundTrip(t *testing.T) {
 	if !doc.SearchDocOK {
 		t.Fatalf("search_doc drift: %+v", doc)
 	}
-	if doc.SchemaVersion != "2" {
-		t.Fatalf("expected schema 2, got %s", doc.SchemaVersion)
+	if doc.SchemaVersion != "4" {
+		t.Fatalf("expected schema 4, got %s", doc.SchemaVersion)
 	}
 
 	got, err := svc.Get(ctx, core.GetInput{UID: rec.UID, IncludeRaw: true})

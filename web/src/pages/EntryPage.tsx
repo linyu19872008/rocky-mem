@@ -7,6 +7,7 @@ import { TrustBadge } from "../components/Badge";
 import { Banner } from "../components/Banner";
 import { DataCard } from "../components/DataCard";
 import { PageHeader } from "../components/PageHeader";
+import { ResolvePanel } from "../components/ResolvePanel";
 
 type Related = {
   uid: string;
@@ -21,12 +22,15 @@ type Related = {
   confidence?: number;
 };
 
+type Resolution = { action: string; note: string; created_at: number };
+
 type GetResult = {
   type: string;
   uid: string;
   entry: Record<string, unknown>;
   evidence?: Record<string, unknown>[];
   related?: Related[];
+  resolutions?: Resolution[];
 };
 
 function field(label: string, val: unknown) {
@@ -111,8 +115,12 @@ export function EntryPage() {
   const title = String(e.title || data?.uid || intl.formatMessage({ id: "entry.title" }));
   const lang = typeof e.lang === "string" ? e.lang : undefined;
   const canReview = data?.type === "experience" && (trust === "proposed" || trust === "contested");
+  const hasPeer = (data?.related?.length || 0) > 0;
   const canResolve =
-    data?.type === "experience" && trust === "contested" && (data.related?.length || 0) > 0;
+    data?.type === "experience" &&
+    trust === "contested" &&
+    hasPeer &&
+    Boolean(e.conflict_group);
 
   const headerActions = canReview ? (
     <>
@@ -134,28 +142,6 @@ export function EntryPage() {
       >
         <FormattedMessage id="review.action.reject" />
       </Button>
-      {canResolve ? (
-        <>
-          <Button
-            variant="ok"
-            onClick={async () => {
-              await api("/api/v1/review/resolve", { uid: data!.uid, action: "keep" });
-              await load();
-            }}
-          >
-            <FormattedMessage id="entry.resolve.keep" />
-          </Button>
-          <Button
-            variant="bad"
-            onClick={async () => {
-              await api("/api/v1/review/resolve", { uid: data!.uid, action: "archive_all" });
-              await load();
-            }}
-          >
-            <FormattedMessage id="entry.resolve.archiveAll" />
-          </Button>
-        </>
-      ) : null}
     </>
   ) : undefined;
 
@@ -213,6 +199,29 @@ export function EntryPage() {
             {field(intl.formatMessage({ id: "entry.field.rootCause" }), e.root_cause)}
             {field(intl.formatMessage({ id: "entry.field.conflictGroup" }), e.conflict_group)}
           </DataCard>
+
+          {canResolve ? (
+            <ResolvePanel
+              uid={data.uid}
+              entry={e as Record<string, unknown>}
+              peer={data.related?.[0]}
+              onDone={load}
+            />
+          ) : null}
+
+          {data.resolutions && data.resolutions.length > 0 ? (
+            <DataCard title={<FormattedMessage id="resolve.history" />}>
+              <ul className="resolve-history">
+                {data.resolutions.map((r, i) => (
+                  <li key={i}>
+                    <strong>{r.action}</strong>{" "}
+                    <span className="meta">{new Date(r.created_at * 1000).toLocaleString()}</span>
+                    <div>{r.note}</div>
+                  </li>
+                ))}
+              </ul>
+            </DataCard>
+          ) : null}
 
           {e.fix_md ? (
             <DataCard title={<FormattedMessage id="entry.fix" />}>

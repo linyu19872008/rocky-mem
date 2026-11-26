@@ -11,6 +11,8 @@ import (
 	"github.com/rocky-mem/rocky-mem/internal/adoption"
 	"github.com/rocky-mem/rocky-mem/internal/config"
 	"github.com/rocky-mem/rocky-mem/internal/core"
+	"github.com/rocky-mem/rocky-mem/internal/store"
+	_ "github.com/rocky-mem/rocky-mem/internal/store/postgres"
 	"github.com/rocky-mem/rocky-mem/internal/store/sqlite"
 	"github.com/spf13/cobra"
 )
@@ -34,18 +36,23 @@ func cmdAdoptVerify() *cobra.Command {
 			protocolErr := adoption.CheckProtocolFiles(root)
 			protocolOK := protocolErr == nil
 
-			_, path, err := config.ParseDSN(flagDSN)
+			driver, path, err := config.ParseDSN(flagDSN)
 			if err != nil {
 				return err
 			}
-			// Prefer project .local DB when --dsn unset and it exists.
+			// Prefer project .local DB when --dsn unset and it exists (sqlite only).
 			if flagDSN == "" {
 				candidate := filepath.Join(root, ".local", "rocky-mem.db")
 				if _, err := os.Stat(candidate); err == nil {
-					path = candidate
+					driver, path = "sqlite", candidate
 				}
 			}
-			st, err := sqlite.Open(path)
+			var st store.Store
+			if driver == "postgres" {
+				st, _, _, err = store.OpenDSN(flagDSN)
+			} else {
+				st, err = sqlite.Open(path)
+			}
 			if err != nil {
 				return err
 			}

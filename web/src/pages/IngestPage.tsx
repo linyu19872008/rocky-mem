@@ -30,6 +30,11 @@ type Preview = {
 
 type ConfirmResult = {
   uid: string;
+  mode: string;
+  source_uid?: string;
+  source_title?: string;
+  chunk_count?: number;
+  unchanged?: boolean;
   trust?: string;
   status?: string;
   review_required?: boolean;
@@ -68,6 +73,7 @@ export function IngestPage() {
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<ConfirmResult | null>(null);
+  const [distill, setDistill] = useState(false);
 
   const applyPreview = useCallback((out: Preview, filename: string) => {
     setPreview(out);
@@ -153,10 +159,12 @@ export function IngestPage() {
         filename: preview.filename,
         title: title.trim() || undefined,
         format: preview.format,
+        mode: distill ? "distill" : "corpus",
       });
       setDone(out);
       setPreview(null);
       setTitle("");
+      setDistill(false);
     } catch (ex) {
       const code = ex instanceof ApiRequestError ? ex.code : "ERR_INTERNAL";
       const msg =
@@ -184,6 +192,30 @@ export function IngestPage() {
       {err ? <p className="err">{err}</p> : null}
       {done ? (
         <DataCard title={<FormattedMessage id="ingest.done" />}>
+          {done.mode === "corpus" ? (
+            <>
+              <p>
+                <Link to={`/entry?uid=${encodeURIComponent(done.source_uid || "")}`}>
+                  {done.source_title || done.source_uid}
+                </Link>
+              </p>
+              <p className="meta">
+                <FormattedMessage
+                  id={done.unchanged ? "ingest.corpusUnchanged" : "ingest.corpusSaved"}
+                  values={{ count: done.chunk_count || 0 }}
+                />
+              </p>
+              <div className="ingest-actions" style={{ border: 0, paddingTop: 0, justifyContent: "flex-start" }}>
+                <Button variant="primary" onClick={() => nav(`/entry?uid=${encodeURIComponent(done.source_uid || "")}`)}>
+                  <FormattedMessage id="ingest.openSource" />
+                </Button>
+                <Button onClick={() => setDone(null)}>
+                  <FormattedMessage id="ingest.again" />
+                </Button>
+              </div>
+            </>
+          ) : (
+          <>
           <p>
             <Link to={`/entry?uid=${encodeURIComponent(done.uid)}`}>{done.uid}</Link>
             {done.trust ? (
@@ -226,6 +258,8 @@ export function IngestPage() {
               <FormattedMessage id="ingest.again" />
             </Button>
           </div>
+          </>
+          )}
         </DataCard>
       ) : null}
 
@@ -358,6 +392,15 @@ export function IngestPage() {
           )}
 
           <div className="ingest-actions">
+            <label className="meta" style={{ marginRight: "auto" }}>
+              <input
+                type="checkbox"
+                checked={distill}
+                onChange={(e) => setDistill(e.target.checked)}
+                style={{ marginRight: "0.4rem" }}
+              />
+              <FormattedMessage id="ingest.modeDistill" />
+            </label>
             <Button
               disabled={busy}
               onClick={() => {

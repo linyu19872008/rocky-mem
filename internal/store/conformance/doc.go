@@ -1,5 +1,5 @@
 // Package conformance pins observable Store behaviour shared by every backend.
 //
-// SQLite runs these tests in-process today. PostgreSQL should call the same
-// Suite once a postgres.Open exists — do not fork the assertions.
+// SQLite runs in-process. PostgreSQL runs the same Suite when
+// ROCKYMEM_TEST_PG_DSN is set — do not fork the assertions.
 package conformance

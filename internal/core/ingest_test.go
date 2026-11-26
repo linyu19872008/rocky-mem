@@ -46,13 +46,26 @@ func TestIngestPreviewAndConfirm(t *testing.T) {
 	if len(prev.Spans) < 1 || len(prev.Segments) < 2 {
 		t.Fatalf("expected spans/segments: spans=%d segs=%d", len(prev.Spans), len(prev.Segments))
 	}
-	rec, err := svc.IngestConfirm(ctx, core.IngestConfirmInput{
+	// Default is corpus: the document becomes background material, not a claim.
+	corpus, err := svc.IngestConfirm(ctx, core.IngestConfirmInput{
 		Redacted: prev.Redacted, Filename: "note.md", Title: "Ingest secret sample", Format: prev.Format,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if rec.UID == "" || rec.Trust != "proposed" {
+	if corpus.Mode != core.ModeCorpus || corpus.SourceUID == "" || corpus.ChunkCount < 1 || corpus.UID != "" {
+		t.Fatalf("expected corpus source: %+v", corpus)
+	}
+
+	// Distill additionally proposes one experience for review.
+	rec, err := svc.IngestConfirm(ctx, core.IngestConfirmInput{
+		Redacted: prev.Redacted, Filename: "note.md", Title: "Ingest secret sample", Format: prev.Format,
+		Mode: core.ModeDistill,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rec.Mode != core.ModeDistill || rec.UID == "" || rec.Trust != "proposed" {
 		t.Fatalf("expected proposed experience: %+v", rec)
 	}
 }
@@ -144,17 +157,23 @@ func TestReviewResolveKeepArchivesPeers(t *testing.T) {
 	if err := st.MarkContested(ctx, []int64{ea.ID, eb.ID}, "cg-test"); err != nil {
 		t.Fatal(err)
 	}
-	out, err := svc.ReviewResolve(ctx, a.UID, "keep")
+	out, err := svc.ReviewResolve(ctx, core.ReviewResolveInput{
+		UID: a.UID, Action: "adopt", Note: "a holds, b was a misapplication",
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if out.Kept != a.UID || len(out.Archived) != 1 || out.Archived[0] != b.UID {
+	if out.Kept != a.UID || len(out.Falsified) != 1 || out.Falsified[0] != b.UID {
 		t.Fatalf("%+v", out)
 	}
 	ea2, _ := st.GetExperienceByUID(ctx, a.UID)
 	eb2, _ := st.GetExperienceByUID(ctx, b.UID)
-	if ea2.Trust != "active" || eb2.Trust != "archived" {
+	if ea2.Trust != "active" || eb2.Trust != "falsified" {
 		t.Fatalf("trusts %s / %s", ea2.Trust, eb2.Trust)
+	}
+	// The falsified side must leave the search index, not just the weight table.
+	if got, _ := st.SearchCandidates(ctx, "fb", "experience", 5); len(got) != 0 {
+		t.Fatalf("falsified entry still indexed: %+v", got)
 	}
 }
 

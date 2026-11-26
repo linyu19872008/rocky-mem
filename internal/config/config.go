@@ -2,7 +2,6 @@
 package config
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -53,9 +52,9 @@ func DefaultSQLitePath() (string, error) {
 	return filepath.Join(home, "rocky-mem.db"), nil
 }
 
-// ParseDSN accepts sqlite://path or a bare filesystem path.
-// Postgres is reserved for a later phase; P0a only opens SQLite.
-func ParseDSN(dsn string) (driver, path string, err error) {
+// ParseDSN accepts sqlite://path, postgres://… / postgresql://…, or a bare path.
+// For postgres drivers, rest is the full DSN (including scheme).
+func ParseDSN(dsn string) (driver, rest string, err error) {
 	if dsn == "" {
 		p, err := DefaultSQLitePath()
 		if err != nil {
@@ -63,12 +62,15 @@ func ParseDSN(dsn string) (driver, path string, err error) {
 		}
 		return "sqlite", p, nil
 	}
-	const prefix = "sqlite://"
-	if len(dsn) >= len(prefix) && dsn[:len(prefix)] == prefix {
-		return "sqlite", dsn[len(prefix):], nil
+	const sqlitePrefix = "sqlite://"
+	if len(dsn) >= len(sqlitePrefix) && dsn[:len(sqlitePrefix)] == sqlitePrefix {
+		return "sqlite", dsn[len(sqlitePrefix):], nil
 	}
-	if len(dsn) >= 11 && dsn[:11] == "postgres://" || len(dsn) >= 14 && dsn[:14] == "postgresql://" {
-		return "", "", fmt.Errorf("postgres backend is not implemented in P0a; use sqlite://…")
+	if len(dsn) >= 11 && dsn[:11] == "postgres://" {
+		return "postgres", dsn, nil
+	}
+	if len(dsn) >= 14 && dsn[:14] == "postgresql://" {
+		return "postgres", dsn, nil
 	}
 	// bare path
 	return "sqlite", dsn, nil

@@ -106,7 +106,8 @@ merging rather than after.
   adding it to that registry in the same PR.
 - Tests for behavioural changes. A schema change needs a migration for both
   dialects and a conformance test.
-- `go test -race` must pass. The write path is concurrent in team mode.
+- `go test -race` must pass. The daemon serves concurrent readers; writes stay
+  single-writer. Do not introduce a second writer path.
 - No `SELECT *` in hot paths. No `ORDER BY title` (see `design/schema.md` §9).
 - No new network calls. Ever. A PR that adds an outbound request will be closed.
 

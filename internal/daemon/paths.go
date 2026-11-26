@@ -3,11 +3,14 @@ package daemon
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/rocky-mem/rocky-mem/internal/config"
 )
 
 const (
@@ -37,6 +40,42 @@ func PathsForDB(dbPath string) Paths {
 		Addr:  filepath.Join(dir, stem+".addr"),
 		Token: filepath.Join(dir, stem+".token"),
 	}
+}
+
+// PathsForPostgres places discovery files under $ROCKYMEM_HOME/pg-<sha256prefix>/
+// derived from the DSN so serve/MCP can share addr+token without a DB file path.
+func PathsForPostgres(dsn string) (Paths, error) {
+	home, err := config.Home()
+	if err != nil {
+		return Paths{}, err
+	}
+	sum := sha256.Sum256([]byte(dsn))
+	dir := filepath.Join(home, fmt.Sprintf("pg-%x", sum[:8]))
+	return Paths{
+		DB:    dsn,
+		Lock:  filepath.Join(dir, "rocky-mem.lock"),
+		Addr:  filepath.Join(dir, "rocky-mem.addr"),
+		Token: filepath.Join(dir, "rocky-mem.token"),
+	}, nil
+}
+
+// PathsForDriver selects SQLite file-adjacent paths or a hashed postgres discovery dir.
+func PathsForDriver(driver, rest string) (Paths, error) {
+	switch driver {
+	case "postgres":
+		return PathsForPostgres(rest)
+	default:
+		return PathsForDB(rest), nil
+	}
+}
+
+// ResolveURLForDriver is ResolveURL using dialect-aware discovery paths.
+func ResolveURLForDriver(driver, rest string) (baseURL, token string, ok bool) {
+	p, err := PathsForDriver(driver, rest)
+	if err != nil {
+		return "", "", false
+	}
+	return resolveURLPaths(p)
 }
 
 func NewToken() (string, error) {
@@ -100,7 +139,10 @@ func ReadDiscovery(p Paths) (addr, token string, err error) {
 // Env URL without a token (env or token file) is treated as unresolved so
 // callers do not dial with an empty bearer.
 func ResolveURL(dbPath string) (baseURL, token string, ok bool) {
-	p := PathsForDB(dbPath)
+	return resolveURLPaths(PathsForDB(dbPath))
+}
+
+func resolveURLPaths(p Paths) (baseURL, token string, ok bool) {
 	if u := strings.TrimSpace(os.Getenv(EnvURL)); u != "" {
 		tok := strings.TrimSpace(os.Getenv(EnvToken))
 		if tok == "" {

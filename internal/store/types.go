@@ -5,19 +5,19 @@ import "context"
 
 // Candidate is a retrieval hit. Score is comparable only within one call.
 type Candidate struct {
-	Kind    string  // memory | experience
+	Kind    string // memory | experience
 	OwnerID int64
 	Score   float64
 }
 
 // SearchDoc is the materialised retrieval document.
 type SearchDoc struct {
-	Kind     string
-	OwnerID  int64
-	Lang     string
-	Title    string
-	Body     string
-	Updated  int64
+	Kind    string
+	OwnerID int64
+	Lang    string
+	Title   string
+	Body    string
+	Updated int64
 }
 
 // Memory is a state row.
@@ -69,6 +69,74 @@ type Experience struct {
 	TCreated      int64
 	TLastUsed     *int64
 	UseCount      int
+}
+
+// Source is an ingested document: background material, not evidence.
+type Source struct {
+	ID           int64
+	UID          string
+	Kind         string // file | paste
+	URI          string
+	Title        string
+	Format       string
+	TextHash     string
+	CharCount    int
+	ChunkCount   int
+	Lang         string
+	Sensitivity  int
+	Status       string // active | archived
+	SupersededBy *int64
+	ProjectID    *int64
+	ActorID      *int64
+	CreatedAt    int64
+	TLastUsed    *int64
+	UseCount     int
+}
+
+// Chunk is one slice of a source document.
+type Chunk struct {
+	ID          int64
+	UID         string
+	SourceID    int64
+	Ord         int
+	Heading     string
+	Text        string
+	CharCount   int
+	Sensitivity int
+}
+
+// ConflictResolution records one human adjudication of a conflict group.
+// Append-only: a group can be re-opened, and the history is the audit trail.
+type ConflictResolution struct {
+	ID          int64
+	GroupID     string
+	Action      string // adopt|split|reject_both|defer|reopen
+	KeptID      *int64
+	Note        string
+	ActorID     *int64
+	ReviewAfter *int64
+	CreatedAt   int64
+}
+
+// Link relates two entities (complements / contradicts / merged_from / …).
+type Link struct {
+	ID        int64
+	SrcType   string
+	SrcID     int64
+	DstType   string
+	DstID     int64
+	Relation  string
+	Note      string
+	CreatedAt int64
+}
+
+// CorpusStats summarises corpus state for doctor.
+type CorpusStats struct {
+	Sources       int
+	ActiveSources int
+	Chunks        int
+	ActiveChunks  int // chunks whose source is active (i.e. should be indexed)
+	ChunkDocs     int // search_doc rows with kind='chunk'
 }
 
 // Raw is immutable evidence content.
@@ -124,6 +192,11 @@ type DoctorReport struct {
 	ActiveMemory    int      `json:"active_memory"`
 	ExpDocCount     int      `json:"experience_doc_count"`
 	IndexableExp    int      `json:"indexable_experience"`
+	SourceCount     int      `json:"source_count"`
+	ActiveSources   int      `json:"active_sources"`
+	ChunkCount      int      `json:"chunk_count"`
+	ActiveChunks    int      `json:"active_chunks"`
+	ChunkDocCount   int      `json:"chunk_doc_count"`
 	Notices         []string `json:"notices"`
 }
 
@@ -174,6 +247,36 @@ type Store interface {
 
 	InsertFeedback(ctx context.Context, f Feedback) (Feedback, error)
 	CountFeedback(ctx context.Context, ownerType string, ownerID int64, outcome string, sinceUnix int64) (int, error)
+
+	// Conflict adjudication and cross-entity relations.
+	UpdateExperienceConditions(ctx context.Context, id int64, appliesWhen, invalidWhen string) error
+	InsertResolution(ctx context.Context, r ConflictResolution) (ConflictResolution, error)
+	LatestResolution(ctx context.Context, group string) (*ConflictResolution, error)
+	ListResolutions(ctx context.Context, group string) ([]ConflictResolution, error)
+	InsertLink(ctx context.Context, l Link) error
+	ListLinks(ctx context.Context, ownerType string, ownerID int64) ([]Link, error)
+
+	// Corpus: ingested documents and their slices. Background material only —
+	// no raw row, no evidence link (see design/adr/0008-corpus-layer.md).
+	InsertSource(ctx context.Context, s Source) (Source, error)
+	GetSourceByTextHash(ctx context.Context, hash string) (*Source, error)
+	GetSourceByUID(ctx context.Context, uid string) (*Source, error)
+	ArchiveSource(ctx context.Context, id, replacedBy, ts int64) error
+	// ArchiveSourceByURI archives older active sources with the same uri in the
+	// same project, pointing them at keepID. Returns how many were archived.
+	ArchiveSourceByURI(ctx context.Context, projectID *int64, uri string, keepID int64) (int, error)
+	ListSourcesByIDs(ctx context.Context, ids []int64) ([]Source, error)
+
+	InsertChunks(ctx context.Context, cs []Chunk) ([]Chunk, error)
+	GetChunkByUID(ctx context.Context, uid string) (*Chunk, error)
+	ListChunksBySource(ctx context.Context, sourceID int64) ([]Chunk, error)
+	// ListActiveChunksByIDs returns only chunks whose source is still active.
+	ListActiveChunksByIDs(ctx context.Context, ids []int64) ([]Chunk, error)
+	// ListAllActiveChunks returns every chunk of every active source (reindex).
+	ListAllActiveChunks(ctx context.Context) ([]Chunk, error)
+
+	DeleteSource(ctx context.Context, id int64) (deletedChunks int, err error)
+	CorpusStats(ctx context.Context) (CorpusStats, error)
 
 	WriteSearchDoc(ctx context.Context, doc SearchDoc) error
 	DeleteSearchDoc(ctx context.Context, kind string, ownerID int64) error

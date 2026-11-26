@@ -14,18 +14,34 @@
 
 **代码标识符在任何文档、任何语言里都是英文**：`mem_search`、`trust='contested'`、`ERR_WRITE_CONFLICT`。翻译标识符是缺陷，不是本地化。
 
+## 当前状态
+
+设计与实现已按 **v0.1.2** 校准（2026-11-26），并按 [ADR-0007](adr/0007-solo-only-scope.md) 收窄范围：**0.x 只交付单人模式，团队模式是未来规划、不在实现范围**。
+
+校准后的三处必读：
+
+- [ADR-0007](adr/0007-solo-only-scope.md)「0.x 只交付单人模式」——为什么不做团队模式，以及哪些表是「预留未接线」
+- [ADR-0008](adr/0008-corpus-layer.md)「语料层」——为什么文档不是经验，以及 Background 段的硬上限
+- [DESIGN.md §15.1](DESIGN.md)「已知偏差」——设计稿写过但没做的东西，逐条列出
+- [DESIGN.md §16](DESIGN.md)「已交付与下一步」——按实际交付，而不是按计划
+
+看设计文档时请记住：**§2–§14 描述的是设计意图，§15.1 才是现状与意图的差**。
+
 ## 文件清单
 
 | 文件 | 内容 | 状态 |
 |---|---|---|
-| [DESIGN.md](DESIGN.md) | 目标、原则、架构、机制、路线图、风险、待定项 | 定稿 |
-| [schema.md](schema.md) | 双方言 DDL、索引、检索写入契约、迁移、运维、禁止操作 | 定稿 |
+| [DESIGN.md](DESIGN.md) | 目标、原则、架构、机制、已知偏差、交付状态、风险 | v1.1，已按 v0.1.2 校准 |
+| [schema.md](schema.md) | 双方言 DDL、索引、检索写入契约、迁移、运维、禁止操作 | 与迁移 `0001`/`0002` 一致 |
 | [adr/0001](adr/0001-record-architecture-decisions.md) | 为什么记录架构决策 | 已采纳 |
 | [adr/0002](adr/0002-split-memory-and-experience-tables.md) | 记忆与经验拆成两张表 | 已采纳 |
 | [adr/0003](adr/0003-sqlite-first-with-portable-schema.md) | SQLite 优先、无并发写者（历史） | **已被 0005 取代** |
 | [adr/0004](adr/0004-i18n-ui-scope-vs-content-language.md) | 界面本地化与内容语言分离 | 已采纳 |
 | [adr/0005](adr/0005-technology-stack.md) | 采用 Go，单二进制支撑双形态 | 已采纳 |
 | [adr/0006](adr/0006-two-database-strategy.md) | 只支持 SQLite 与 PostgreSQL | 已采纳 |
+| [adr/0007](adr/0007-solo-only-scope.md) | 0.x 只交付单人模式，团队模式推迟 | 已采纳 |
+| [adr/0008](adr/0008-corpus-layer.md) | 语料层（source / chunk）与 Background 上限 | 已采纳 |
+| [adr/0009](adr/0009-conflict-adjudication.md) | 冲突裁定：五种结局、理由必填、不进 MCP | 已采纳 |
 
 ## 建议阅读顺序
 
@@ -59,9 +75,11 @@
 
 ## 尚未编写
 
-- 长篇复盘式设计（例如「检索质量如何评测」）——等 P1 有真实数据再说。
-- 向量检索设计（P3）。
+- 长篇复盘式设计（例如「检索质量如何评测」）——等有真实使用数据再写。
+- 向量检索设计（未来，见 `DESIGN.md` §16.2 第 7 项）。
 
 ## 历史材料
 
-仓库根目录还留着两份更早的中文文档：`工作台账_设计.md` 与 `AI工作痕迹采集_技术文档.md`。它们是本设计的输入材料，不是当前设计的一部分，按 `DESIGN.md` §18 待定项决定去留。
+本设计的两份输入材料——《工作台账\_设计.md》与《AI 工作痕迹采集\_技术文档.md》——**不在本仓库内**，也不参与版本管理。它们的使命已经完成，留在仓库里只会和当前设计混淆。
+
+需要追溯来源时看 [DESIGN.md](DESIGN.md) 末尾的「沿革」一节：它记录了继承了什么、改了什么，足以解释现在为什么这么设计，不需要原始文档也能读懂。

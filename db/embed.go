@@ -12,6 +12,9 @@ import (
 //go:embed migrations/sqlite/*.sql
 var SQLiteFS embed.FS
 
+//go:embed migrations/postgres/*.sql
+var PostgresFS embed.FS
+
 // Migration is one ordered SQL script.
 type Migration struct {
 	Version int
@@ -21,7 +24,16 @@ type Migration struct {
 
 // SQLiteMigrations returns migrations sorted by version ascending.
 func SQLiteMigrations() ([]Migration, error) {
-	entries, err := SQLiteFS.ReadDir("migrations/sqlite")
+	return migrationsFrom(SQLiteFS, "migrations/sqlite")
+}
+
+// PostgresMigrations returns migrations sorted by version ascending.
+func PostgresMigrations() ([]Migration, error) {
+	return migrationsFrom(PostgresFS, "migrations/postgres")
+}
+
+func migrationsFrom(fs embed.FS, dir string) ([]Migration, error) {
+	entries, err := fs.ReadDir(dir)
 	if err != nil {
 		return nil, err
 	}
@@ -38,7 +50,7 @@ func SQLiteMigrations() ([]Migration, error) {
 		if err != nil {
 			return nil, fmt.Errorf("migration name %q: %w", e.Name(), err)
 		}
-		body, err := SQLiteFS.ReadFile("migrations/sqlite/" + e.Name())
+		body, err := fs.ReadFile(dir + "/" + e.Name())
 		if err != nil {
 			return nil, err
 		}
@@ -51,6 +63,15 @@ func SQLiteMigrations() ([]Migration, error) {
 // SQLiteInit is the P0 schema bootstrap script (migration 1).
 func SQLiteInit() (string, error) {
 	b, err := SQLiteFS.ReadFile("migrations/sqlite/0001_init.sql")
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
+}
+
+// PostgresInit is the P0 PostgreSQL schema bootstrap script (migration 1).
+func PostgresInit() (string, error) {
+	b, err := PostgresFS.ReadFile("migrations/postgres/0001_init.sql")
 	if err != nil {
 		return "", err
 	}

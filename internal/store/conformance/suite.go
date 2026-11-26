@@ -26,6 +26,12 @@ func Suite(t *testing.T, open OpenFunc) {
 	t.Run("PurgeByUID", func(t *testing.T) { testPurgeByUID(t, open) })
 	t.Run("ProjectRootCoalesce", func(t *testing.T) { testProjectRootCoalesce(t, open) })
 	t.Run("DoctorSearchDocOK", func(t *testing.T) { testDoctorSearchDocOK(t, open) })
+	t.Run("CorpusSourceChunksSearch", func(t *testing.T) { testCorpusSourceChunksSearch(t, open) })
+	t.Run("CorpusArchiveHidesChunks", func(t *testing.T) { testCorpusArchiveHidesChunks(t, open) })
+	t.Run("CorpusDeleteCascades", func(t *testing.T) { testCorpusDeleteCascades(t, open) })
+	t.Run("ConflictResolutionAppendOnly", func(t *testing.T) { testConflictResolutionAppendOnly(t, open) })
+	t.Run("LinkUpsertAndLookup", func(t *testing.T) { testLinkUpsertAndLookup(t, open) })
+	t.Run("ConditionsUpdateRewritesIndex", func(t *testing.T) { testConditionsUpdateRewritesIndex(t, open) })
 }
 
 func testLocalUser(t *testing.T, open OpenFunc) {
@@ -96,7 +102,7 @@ func testExperienceSearchDoc(t *testing.T, open OpenFunc) {
 		UID: uid.Experience(), ExpType: "pitfall", Scope: "global",
 		Title: "ConfigMap lag", Symptom: "stale mount", FixMD: "checksum",
 		SymptomKey: textnorm.SymptomKey("stale mount", "und"),
-		FixHash: textnorm.Hash("checksum"), AppliesWhen: "k8s", Outcome: "success",
+		FixHash:    textnorm.Hash("checksum"), AppliesWhen: "k8s", Outcome: "success",
 		Confidence: 0.9, Trust: "active", Lang: "und", Sensitivity: 2, ActorID: &actor,
 	})
 	if err != nil {
@@ -305,5 +311,274 @@ func testDoctorSearchDocOK(t *testing.T, open OpenFunc) {
 	}
 	if !rep.SearchDocOK {
 		t.Fatalf("doctor: %+v", rep)
+	}
+}
+
+func seedSource(t *testing.T, st store.Store, actor int64, hash string) store.Source {
+	t.Helper()
+	src, err := st.InsertSource(context.Background(), store.Source{
+		UID: uid.Source(), Kind: "file", URI: "rollout.md", Title: "Rollout notes",
+		Format: "plain", TextHash: hash, CharCount: 120, ChunkCount: 2,
+		Lang: "en", Sensitivity: 2, ActorID: &actor,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return src
+}
+
+func testCorpusSourceChunksSearch(t *testing.T, open OpenFunc) {
+	st := open(t)
+	defer st.Close()
+	ctx := context.Background()
+	actor, _ := st.EnsureLocalUser(ctx)
+	src := seedSource(t, st, actor, "hash-rollout")
+
+	got, err := st.GetSourceByTextHash(ctx, "hash-rollout")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got == nil || got.ID != src.ID || got.Status != "active" {
+		t.Fatalf("lookup by hash: %+v", got)
+	}
+
+	chunks, err := st.InsertChunks(ctx, []store.Chunk{
+		{UID: uid.Chunk(), SourceID: src.ID, Ord: 0, Heading: "1",
+			Text: "checksum annotation forces pod recreation", CharCount: 44, Sensitivity: 2},
+		{UID: uid.Chunk(), SourceID: src.ID, Ord: 1,
+			Text: "mounted configmap lags sixty seconds", CharCount: 37, Sensitivity: 2},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(chunks) != 2 || chunks[0].ID == 0 || chunks[1].ID == 0 {
+		t.Fatalf("inserted chunks: %+v", chunks)
+	}
+
+	if err := st.WriteSearchDoc(ctx, store.SearchDoc{
+		Kind: "chunk", OwnerID: chunks[0].ID, Lang: "en",
+		Title: "Rollout notes", Body: chunks[0].Text,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	cands, err := st.SearchCandidates(ctx, "checksum annotation", "chunk", 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cands) == 0 || cands[0].Kind != "chunk" || cands[0].OwnerID != chunks[0].ID {
+		t.Fatalf("chunk search: %+v", cands)
+	}
+
+	byUID, err := st.GetChunkByUID(ctx, chunks[1].UID)
+	if err != nil || byUID == nil || byUID.Ord != 1 {
+		t.Fatalf("get chunk by uid: %+v %v", byUID, err)
+	}
+
+	stats, err := st.CorpusStats(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stats.Sources != 1 || stats.ActiveSources != 1 || stats.Chunks != 2 || stats.ChunkDocs != 1 {
+		t.Fatalf("stats: %+v", stats)
+	}
+}
+
+func testCorpusArchiveHidesChunks(t *testing.T, open OpenFunc) {
+	st := open(t)
+	defer st.Close()
+	ctx := context.Background()
+	actor, _ := st.EnsureLocalUser(ctx)
+	src := seedSource(t, st, actor, "hash-archive")
+	chunks, err := st.InsertChunks(ctx, []store.Chunk{
+		{UID: uid.Chunk(), SourceID: src.ID, Ord: 0, Text: "alpha beta", CharCount: 10, Sensitivity: 2},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids := []int64{chunks[0].ID}
+	if err := st.WriteSearchDoc(ctx, store.SearchDoc{
+		Kind: "chunk", OwnerID: chunks[0].ID, Lang: "en", Title: src.Title, Body: chunks[0].Text,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := st.SearchCandidates(ctx, "alpha beta", "chunk", 5); len(got) == 0 {
+		t.Fatal("chunk should be searchable before archiving")
+	}
+
+	active, err := st.ListActiveChunksByIDs(ctx, ids)
+	if err != nil || len(active) != 1 {
+		t.Fatalf("before archive: %d %v", len(active), err)
+	}
+	if err := st.ArchiveSource(ctx, src.ID, src.ID, 0); err != nil {
+		t.Fatal(err)
+	}
+	active, err = st.ListActiveChunksByIDs(ctx, ids)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(active) != 0 {
+		t.Fatalf("archived source still returns %d chunks", len(active))
+	}
+	if got, _ := st.SearchCandidates(ctx, "alpha beta", "chunk", 5); len(got) != 0 {
+		t.Fatalf("archived chunk still indexed: %+v", got)
+	}
+	all, err := st.ListChunksBySource(ctx, src.ID)
+	if err != nil || len(all) != 1 {
+		t.Fatalf("chunks should survive archiving: %d %v", len(all), err)
+	}
+}
+
+func testCorpusDeleteCascades(t *testing.T, open OpenFunc) {
+	st := open(t)
+	defer st.Close()
+	ctx := context.Background()
+	actor, _ := st.EnsureLocalUser(ctx)
+	src := seedSource(t, st, actor, "hash-delete")
+	chunks, err := st.InsertChunks(ctx, []store.Chunk{
+		{UID: uid.Chunk(), SourceID: src.ID, Ord: 0, Text: "gamma delta", CharCount: 11, Sensitivity: 2},
+		{UID: uid.Chunk(), SourceID: src.ID, Ord: 1, Text: "epsilon zeta", CharCount: 12, Sensitivity: 2},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range chunks {
+		if err := st.WriteSearchDoc(ctx, store.SearchDoc{
+			Kind: "chunk", OwnerID: c.ID, Lang: "en", Title: src.Title, Body: c.Text,
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	n, err := st.DeleteSource(ctx, src.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 2 {
+		t.Fatalf("deleted chunk count %d, want 2", n)
+	}
+	gone, _ := st.GetSourceByUID(ctx, src.UID)
+	if gone != nil {
+		t.Fatalf("source still present: %+v", gone)
+	}
+	stats, err := st.CorpusStats(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stats.Sources != 0 || stats.Chunks != 0 || stats.ChunkDocs != 0 {
+		t.Fatalf("stats after delete: %+v", stats)
+	}
+}
+
+func seedExperience(t *testing.T, st store.Store, actor int64, title string) store.Experience {
+	t.Helper()
+	e, err := st.InsertExperience(context.Background(), store.Experience{
+		UID: uid.Experience(), ExpType: "pitfall", Scope: "global",
+		Title: title, Symptom: "seed symptom", FixMD: "seed fix", Trust: "contested",
+		SymptomKey:  textnorm.SymptomKey("seed symptom", "und"),
+		FixHash:     textnorm.Hash("seed fix " + title),
+		AppliesWhen: "seed", Outcome: "unknown", Confidence: 0.8,
+		Lang: "und", Sensitivity: 2, ActorID: &actor,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return e
+}
+
+func testConflictResolutionAppendOnly(t *testing.T, open OpenFunc) {
+	st := open(t)
+	defer st.Close()
+	ctx := context.Background()
+	actor, _ := st.EnsureLocalUser(ctx)
+	a := seedExperience(t, st, actor, "Resolution A")
+
+	first, err := st.InsertResolution(ctx, store.ConflictResolution{
+		GroupID: "cg_seed", Action: "defer", Note: "need logs", ActorID: &actor, CreatedAt: 100,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.ID == 0 {
+		t.Fatal("resolution id not assigned")
+	}
+	second, err := st.InsertResolution(ctx, store.ConflictResolution{
+		GroupID: "cg_seed", Action: "adopt", Note: "A holds", KeptID: &a.ID, ActorID: &actor, CreatedAt: 200,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	latest, err := st.LatestResolution(ctx, "cg_seed")
+	if err != nil || latest == nil {
+		t.Fatalf("latest: %+v %v", latest, err)
+	}
+	if latest.ID != second.ID || latest.Action != "adopt" || latest.KeptID == nil || *latest.KeptID != a.ID {
+		t.Fatalf("latest resolution: %+v", latest)
+	}
+	all, err := st.ListResolutions(ctx, "cg_seed")
+	if err != nil || len(all) != 2 {
+		t.Fatalf("history: %d %v", len(all), err)
+	}
+	if all[0].Action != "defer" || all[1].Action != "adopt" {
+		t.Fatalf("history order: %+v", all)
+	}
+}
+
+func testLinkUpsertAndLookup(t *testing.T, open OpenFunc) {
+	st := open(t)
+	defer st.Close()
+	ctx := context.Background()
+	actor, _ := st.EnsureLocalUser(ctx)
+	a := seedExperience(t, st, actor, "Link A")
+	b := seedExperience(t, st, actor, "Link B")
+
+	link := store.Link{
+		SrcType: "experience", SrcID: a.ID,
+		DstType: "experience", DstID: b.ID,
+		Relation: "complements", Note: "different conditions",
+	}
+	if err := st.InsertLink(ctx, link); err != nil {
+		t.Fatal(err)
+	}
+	// Same tuple twice must stay one row (unique index + DO NOTHING).
+	if err := st.InsertLink(ctx, link); err != nil {
+		t.Fatal(err)
+	}
+
+	fromA, err := st.ListLinks(ctx, "experience", a.ID)
+	if err != nil || len(fromA) != 1 || fromA[0].Relation != "complements" {
+		t.Fatalf("from A: %+v %v", fromA, err)
+	}
+	// Lookup is symmetric: the peer sees the same relation.
+	fromB, err := st.ListLinks(ctx, "experience", b.ID)
+	if err != nil || len(fromB) != 1 || fromB[0].SrcID != a.ID {
+		t.Fatalf("from B: %+v %v", fromB, err)
+	}
+}
+
+func testConditionsUpdateRewritesIndex(t *testing.T, open OpenFunc) {
+	st := open(t)
+	defer st.Close()
+	ctx := context.Background()
+	actor, _ := st.EnsureLocalUser(ctx)
+	e := seedExperience(t, st, actor, "Condition A")
+	if err := st.WriteSearchDoc(ctx, store.SearchDoc{
+		Kind: "experience", OwnerID: e.ID, Lang: "und", Title: e.Title, Body: "seed symptom",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.UpdateExperienceConditions(ctx, e.ID, "file mounted", "api read"); err != nil {
+		t.Fatal(err)
+	}
+	got, err := st.GetExperienceByUID(ctx, e.UID)
+	if err != nil || got == nil {
+		t.Fatalf("get: %+v %v", got, err)
+	}
+	if got.AppliesWhen != "file mounted" || got.InvalidWhen != "api read" {
+		t.Fatalf("conditions: %+v", got)
+	}
+	if got.Rev < 2 {
+		t.Fatalf("rev not bumped: %d", got.Rev)
 	}
 }

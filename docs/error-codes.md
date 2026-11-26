@@ -2,13 +2,16 @@
 
 A stable public contract. Clients branch on `code`; humans read `message`.
 
+**This registry mirrors `internal/errs/errs.go` exactly.** If a code is not a
+constant there, it does not exist — no matter what an older draft of this
+document said.
+
 ## 1. Conventions
 
 - Format: `ERR_<DOMAIN>_<CONDITION>`, `SCREAMING_SNAKE_CASE`, ASCII.
-- Domains: `AUTH`, `REQ`, `ENTRY`, `EVIDENCE`, `SCOPE`, `POLICY`, `DB`, `FTS`, `SYS`.
-- Codes are **never renamed, never reused, never silently repurposed.** A code
-  that stops being emitted stays in this table, marked deprecated, for at least
-  one major version.
+- Codes are **never renamed, never reused, never repurposed.** A code that stops
+  being emitted stays in this table, marked *reserved*, for at least one major
+  version.
 - `message` is English, human-readable, and may be reworded between releases —
   which is exactly why clients must not match on it.
 - The web UI translates by convention: message key `error.<CODE>`. A missing key
@@ -22,9 +25,8 @@ HTTP:
 {
   "error": {
     "code": "ERR_EVIDENCE_REQUIRED",
-    "message": "At least 1 evidence item is required for an experience entry.",
-    "params": { "min": 1 },
-    "request_id": "req_01J9M…"
+    "message": "At least one evidence item is required",
+    "params": { "min": 1 }
   }
 }
 ```
@@ -37,93 +39,74 @@ CLI: `message` on stderr, exit code derived from the HTTP status class
 
 ## 3. Registry
 
-### Authentication and authorization
+*Emitted* means the code is actually returned by shipped code in solo mode.
+*Reserved* means the constant exists but nothing returns it today; clients must
+still tolerate it (it may appear in a future release without a breaking change).
 
-| Code | HTTP | Params | Meaning |
+| Code | HTTP | Status | Meaning |
 |---|---|---|---|
-| `ERR_UNAUTHORIZED` | 401 | — | Missing or invalid bearer token |
-| `ERR_FORBIDDEN` | 403 | — | Authenticated but not permitted for this action |
-| `ERR_SCOPE_FORBIDDEN` | 403 | `scope` | Operation would read or write a scope the caller may not touch |
+| `ERR_UNAUTHORIZED` | 401 | emitted | Missing or invalid bearer token / session |
+| `ERR_FORBIDDEN` | 403 | **reserved** | Authenticated but not permitted. Team-mode concept; no caller can be forbidden in solo |
+| `ERR_SCOPE_FORBIDDEN` | 403 | **reserved** | Operation would touch a scope the caller may not access. Team-mode only |
+| `ERR_INVALID_REQUEST` | 400 | emitted | Malformed body, unknown field, unparsable JSON |
+| `ERR_FIELD_REQUIRED` | 400 | emitted | A required field is absent (`params.field`) |
+| `ERR_FIELD_INVALID` | 400 | emitted | Present but violates a constraint (`params.field`, `params.reason`) |
+| `ERR_UNSUPPORTED_LANG` | 500 | **reserved** | Not a BCP-47 tag we accept |
+| `ERR_PAYLOAD_TOO_LARGE` | 500 | **reserved** | Exceeds a documented limit |
+| `ERR_EVIDENCE_REQUIRED` | 400 | emitted | An experience entry was submitted without evidence |
+| `ERR_WRITE_CONFLICT` | 409 | emitted | `rev` CAS failed: the row changed between read and write (`params.uid`, `params.expected_rev`, `params.actual_rev`) |
+| `ERR_NOT_FOUND` | 404 | emitted | No such entry, lineage, or raw record (`params.uid`) |
+| `ERR_PROJECT_UNRESOLVED` | 500 | emitted | No `project` row matches `cwd` and no explicit scope was given |
+| `ERR_POLICY_REJECTED` | 400 | emitted | Content refused by the redaction policy (L4, unredactable) (`params.reject_why`) |
+| `ERR_FTS_UNAVAILABLE` | 500 | **reserved** | FTS5 missing; search runs in degraded `LIKE` mode |
+| `ERR_NOT_IMPLEMENTED` | 501 | emitted | Reserved surface, e.g. `kinds: ["chunk"]` |
+| `ERR_DB` | 500 | **reserved** | Storage-layer failure |
+| `ERR_SYS_INTERNAL` | 500 | emitted | Unexpected failure; also the wrapper for any unclassified error |
 
-### Request shape
+### Notes that matter to a client
 
-| Code | HTTP | Params | Meaning |
-|---|---|---|---|
-| `ERR_INVALID_REQUEST` | 400 | `detail` | Malformed body or unknown field |
-| `ERR_FIELD_REQUIRED` | 400 | `field` | A required field is absent |
-| `ERR_FIELD_INVALID` | 400 | `field`, `reason` | Present but violates a constraint |
-| `ERR_UNSUPPORTED_LANG` | 400 | `lang` | Not a BCP-47 tag we accept |
-| `ERR_PAYLOAD_TOO_LARGE` | 413 | `limit`, `actual` | Exceeds the documented limit |
+1. **`ERR_WRITE_CONFLICT` is reachable in solo mode.** Two clients that each read
+   the same `rev` and then write back will hit it. It is not a team-mode-only
+   code; treat it as "re-read, then retry".
+2. **Status codes are coarse.** Four codes whose meaning is client-error-ish
+   (`ERR_UNSUPPORTED_LANG`, `ERR_PAYLOAD_TOO_LARGE`, `ERR_FTS_UNAVAILABLE`,
+   `ERR_PROJECT_UNRESOLVED`) currently fall through to `500` because the status
+   mapping only special-cases a subset. Branch on `code`, never on the status.
+   Tightening this is tracked as a wart, not a contract change.
+3. **Deep links to other documents:** `docs/mcp-tools.md` §7 says how an agent
+   should react to each of these.
 
-### Entry and evidence
+### Deliberately absent
 
-| Code | HTTP | Params | Meaning |
-|---|---|---|---|
-| `ERR_ENTRY_NOT_FOUND` | 404 | `uid` | No such entry or lineage |
-| `ERR_EVIDENCE_REQUIRED` | 422 | `min` | An experience entry was submitted without evidence |
-| `ERR_EVIDENCE_DANGLING` | 422 | `raw_uid` | The cited `raw` row does not exist |
-| `ERR_EVIDENCE_IN_USE` | 409 | `raw_uid`, `owners` | Deleting a `raw` row that entries still cite |
-| `ERR_ENTRY_CONFLICT` | 409 | `group`, `uids[]` | Same symptom, different fix; both are contested |
-| `ERR_ENTRY_IMMUTABLE` | 409 | `uid`, `field` | Attempt to modify an append-only field of an experience |
+Codes from earlier drafts that **do not exist** and must not be reintroduced
+without adding the constant first:
 
-Duplicate content is **not** an error. `mem_record` and `mem_remember` return the
-existing `uid` with `status: "unchanged"` (or `"deduplicated"` when only the
-evidence was merged).
+`ERR_ENTRY_NOT_FOUND` (use `ERR_NOT_FOUND`), `ERR_ENTRY_CONFLICT`,
+`ERR_EVIDENCE_DANGLING`, `ERR_EVIDENCE_IN_USE`, `ERR_ENTRY_IMMUTABLE`,
+`ERR_IDEMPOTENCY_MISMATCH`, `ERR_RATE_LIMITED`, `ERR_POLICY_SENSITIVITY`,
+`ERR_POLICY_REDACTION`, `ERR_DB_BUSY`, `ERR_DB_CORRUPT`, `ERR_SCHEMA_VERSION`,
+`ERR_MIGRATION_FAILED`, `ERR_INTERNAL`.
 
-### Concurrency and idempotency
-
-| Code | HTTP | Params | Meaning |
-|---|---|---|---|
-| `ERR_WRITE_CONFLICT` | 409 | `uid`, `expected_rev`, `actual_rev` | Optimistic-lock failure: the row changed between read and write |
-| `ERR_IDEMPOTENCY_MISMATCH` | 409 | `key` | The same `Idempotency-Key` was reused with a different request body |
-| `ERR_PROJECT_UNRESOLVED` | 422 | `cwd` | No `project` row matches the working directory and no explicit scope was given |
-
-`ERR_WRITE_CONFLICT` is only reachable in team mode. In solo mode there is a
-single writer queue, so the conflict cannot occur; the code exists anyway so
-that clients do not need two behaviours.
-
-Replaying an `Idempotency-Key` with an **identical** request is not an error: the
-cached response is returned with `200` and `idempotent_replay: true`. Only a
-key/body mismatch is `ERR_IDEMPOTENCY_MISMATCH`.
-
-`ERR_PROJECT_UNRESOLVED` is recoverable: the caller should retry with an explicit
-`scope: "global"` or `scope: "session"`. Guessing a project from a path prefix is
-forbidden, because in team mode two users' paths for the same repository differ.
-
-### Policy
-
-| Code | HTTP | Params | Meaning |
-|---|---|---|---|
-| `ERR_POLICY_SENSITIVITY` | 403 | `sensitivity`, `reason` | Content classified as never-persistable (L4) was rejected |
-| `ERR_POLICY_REDACTION` | 422 | `rule_id` | Redaction could not complete; the write is refused rather than stored raw |
-
-### Storage
-
-| Code | HTTP | Params | Meaning |
-|---|---|---|---|
-| `ERR_DB_BUSY` | 503 | `retry_after_ms` | Writer lock contention; retry once, then give up |
-| `ERR_DB_CORRUPT` | 500 | `detail` | `integrity_check` failed; restore from snapshot |
-| `ERR_SCHEMA_VERSION` | 500 | `found`, `expected` | Store written by an incompatible version |
-| `ERR_MIGRATION_FAILED` | 500 | `from`, `to`, `detail` | Migration rolled back; the pre-migration snapshot path is in `params` |
-| `ERR_FTS_UNAVAILABLE` | 503 | `feature` | FTS5 missing or disabled; search is running in degraded `LIKE` mode |
-
-### System
-
-| Code | HTTP | Params | Meaning |
-|---|---|---|---|
-| `ERR_RATE_LIMITED` | 429 | `retry_after_ms` | Too many writes from one client |
-| `ERR_NOT_IMPLEMENTED` | 501 | `feature` | Reserved surface, not yet available (e.g. `kinds: ["chunk"]` in P0) |
-| `ERR_INTERNAL` | 500 | `request_id` | Unexpected failure; the id ties to the log line |
+Two of them existed only because a feature was planned: `ERR_IDEMPOTENCY_MISMATCH`
+(the `idempotency` table is built but not wired) and `ERR_RATE_LIMITED` (no rate
+limiter). Others were speculative.
 
 ## 4. Agent guidance
 
-Which codes an agent should react to, and how, is defined once in
-`mcp-tools.md` §7. The short version: never retry a validation error
-unchanged; never broaden a scope to work around a permission error; report
-conflicts to the human rather than picking a side.
+| Code | Agent behaviour |
+|---|---|
+| `ERR_EVIDENCE_REQUIRED` | Add evidence; do not retry unchanged |
+| `ERR_FIELD_REQUIRED` / `ERR_FIELD_INVALID` | Fix the named field; do not retry unchanged |
+| `ERR_WRITE_CONFLICT` | Re-read with `mem_get`, re-apply on the current `rev`; never blind-retry |
+| `ERR_PROJECT_UNRESOLVED` | Retry with `scope: "global"` or `scope: "session"`; do not guess a project from the path |
+| `ERR_NOT_IMPLEMENTED` | The surface is reserved; report it, do not work around it |
+| `ERR_POLICY_REJECTED` | Do not retry. The content was refused by policy; tell the human |
+| `ERR_UNAUTHORIZED` | Stop. The client needs a token, not a retry |
+| `ERR_NOT_FOUND` | Re-resolve the `uid`; it may have been purged |
 
 ## 5. Change log
 
 | Version | Change |
 |---|---|
+| 0.1.2 | Registry realigned to `internal/errs/errs.go`; 14 phantom codes removed; `ERR_WRITE_CONFLICT` corrected to "reachable in solo" |
 | 0.1.0 | Initial registry |

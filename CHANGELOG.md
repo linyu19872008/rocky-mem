@@ -9,7 +9,95 @@ Until `1.0.0`, minor versions may include breaking changes. Breaking changes are
 always marked `!` in the commit subject and listed under **Changed** with a
 migration note.
 
-## [Unreleased]
+## [0.2.0] — 2026-11-27
+
+**This release supersedes the unreleased 0.1.3 and 0.1.4 notes below** — those
+two sections describe work that ships here for the first time.
+
+### Added
+
+- **MCP over Streamable HTTP.** `POST /mcp` serves the same tools as stdio,
+  stateless, behind the existing bearer token. `GET`/`DELETE` answer 405 by
+  design; protocol revisions 2024-11-05 through 2026-07-28 are negotiated by
+  the SDK.
+- **`doctor` publishes capability.** `GET /api/v1/doctor` now carries
+  `contract`, `version`, `features[]`, and an `mcp` block, so clients decide
+  what they may use instead of inferring it from the release string.
+- **Portable skill** at `skills/rocky-mem/` (playbook, references, host
+  adapters) published as `rocky-mem-skill` from this repository.
+  `make verify-skill` asserts the skill, the npm package, `tools.json`, and the
+  real error-code registry agree.
+- `rocky-mem-dsh` bundle (separate repository) consumes that contract.
+
+### Changed
+
+- `docs/mcp-tools.md` documents both transports instead of promising a
+  `POST /mcp` that did not exist.
+
+## [0.1.4] — 2026-11-27
+
+### Added
+
+- **Conflict adjudication** (`ADR-0009`, migration `0004`): `conflict_resolution`
+  (append-only rulings) and `link` (relations). Five actions: `adopt`, `split`,
+  `reject_both`, `defer`, `reopen`. A reason is required; `split` requires four
+  non-empty, non-identical conditions and writes them back to the entries.
+- **`mem_get` exposes `resolutions`** for an experience's conflict group, oldest
+  first, so "why is this active" is answerable.
+- **Context packs flag unresolved conflicts** with a `> Contested` line and the
+  peer uid; members of one group are rendered adjacent.
+- **CLI**: `rockymem review resolve <uid> --action … --note …`.
+
+### Changed
+
+- **`keep` / `archive_all` are gone** (`!` for HTTP clients). `action:"adopt"`
+  replaces `keep`, and the losing side is now `falsified` (demonstrably wrong)
+  rather than `archived` (out of circulation). Callers must pass `note`.
+- **Archiving now drops the search document.** `review reject` previously left the
+  index row behind, which made `doctor` report drift; `setTrust` now owns the
+  index lifecycle.
+
+## [0.1.3] — 2026-11-26
+
+### Added
+
+- **Corpus layer** (`ADR-0008`, migration `0003`): `source` + `chunk` tables,
+  `mem_get` for `s_…`/`c_…`, `purge --source`, chunk-aware `reindex` / `doctor`.
+  Ingest now stores a document as background material by default; `distill` is an
+  opt-in checkbox that also proposes one experience.
+- **Corpus retrieval**: passages are returned in a capped `## Background` section
+  (2 items / 1 per document by default, 5 / 2 when `kinds` asks for `chunk`) and
+  only while ≥30 % of the budget remains.
+- **Re-ingest versioning**: the same filename with different content archives the
+  previous source and drops its chunks from the index.
+- **PostgreSQL store:** `postgres://` / `postgresql://` DSN opens a real
+  `pg_trgm` backend (`db/migrations/postgres`, `internal/store/postgres`) that
+  shares `store/conformance.Suite` (set `ROCKYMEM_TEST_PG_DSN` to run).
+  Backup/restore remain SQLite-only. This is a **single-user alternative
+  backend**, not a shared server — see ADR-0007.
+
+### Changed
+
+- **Ingest default changed** from "one proposed experience with truncated body" to
+  "corpus + chunks". Callers that relied on the old behaviour pass `mode: "distill"`.
+- **Scope narrowed to solo.** `ADR-0007` records that 0.x ships single-user only:
+  no auth wiring, `membership`/`team`/`api_token` stay reserved-and-unread,
+  `scope=team` is inert, and PostgreSQL is not a collaboration story. Design,
+  README (en/zh) and SECURITY now say this instead of implying two usable modes.
+- **Error-code registry realigned to `internal/errs/errs.go`.** 14 codes that
+  never existed were removed (`ERR_ENTRY_CONFLICT`, `ERR_DB_BUSY`, …), 8 real
+  ones were documented (`ERR_NOT_FOUND`, `ERR_POLICY_REJECTED`, `ERR_DB`,
+  `ERR_SYS_INTERNAL`, …), and the claim that `ERR_WRITE_CONFLICT` is team-only
+  was corrected — it is reachable in solo via a stale `rev`.
+- **SECURITY threat model rewritten** to contain only mitigations that exist;
+  the Argon2id-hashing and rate-limit claims were false and are gone.
+- **Design set calibrated to v0.1.2.** `design/DESIGN.md` §6/§11/§13/§14 now
+  describe the shipped code, §15.1 lists every known design-vs-implementation
+  gap, and §16 records delivery by Tier instead of plan.
+  `design/schema.md` gained the `0002_feedback` migration and the reserved
+  `chunk` note; `docs/mcp-tools.md` documents the `cwd` argument on
+  `mem_record`/`mem_remember`, the `501` for `kinds: ["chunk"]`, and the inert
+  `team` scope.
 
 ## [0.1.2] — 2026-11-24
 

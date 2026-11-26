@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/rocky-mem/rocky-mem/internal/errs"
+	"github.com/rocky-mem/rocky-mem/internal/store"
 )
 
 // GetInput matches mem_get.
@@ -15,7 +16,7 @@ type GetInput struct {
 
 // GetResult is a full entry with evidence.
 type GetResult struct {
-	Type     string           `json:"type"` // memory | experience
+	Type     string           `json:"type"` // memory | experience | source | chunk
 	UID      string           `json:"uid"`
 	Entry    map[string]any   `json:"entry"`
 	Evidence []map[string]any `json:"evidence"`
@@ -23,6 +24,10 @@ type GetResult struct {
 	Related  []map[string]any `json:"related,omitempty"`
 	Lineage  any              `json:"lineage"`
 	Versions []map[string]any `json:"versions,omitempty"`
+	Chunks   []map[string]any `json:"chunks,omitempty"` // source only: chunk directory
+	// Resolutions is the adjudication history of this entry's conflict group,
+	// oldest first. Append-only: the last row is the current ruling.
+	Resolutions []map[string]any `json:"resolutions,omitempty"`
 }
 
 // Get returns one memory or experience by uid (or memory lineage).
@@ -34,6 +39,12 @@ func (s *Service) Get(ctx context.Context, in GetInput) (*GetResult, error) {
 
 	if strings.HasPrefix(uid, "e_") {
 		return s.getExperience(ctx, uid, in.IncludeRaw)
+	}
+	if strings.HasPrefix(uid, "s_") {
+		return s.getSource(ctx, uid)
+	}
+	if strings.HasPrefix(uid, "c_") {
+		return s.getChunk(ctx, uid)
 	}
 	// memory uid or lineage (lineage is typically an m_ uid)
 	return s.getMemory(ctx, uid, in.IncludeRaw)
@@ -68,6 +79,17 @@ func (s *Service) getExperience(ctx context.Context, uid string, includeRaw bool
 			})
 		}
 	}
+	var resolutions []map[string]any
+	if e.ConflictGroup != "" {
+		if rs, err := s.Store.ListResolutions(ctx, e.ConflictGroup); err == nil {
+			for _, r := range rs {
+				resolutions = append(resolutions, map[string]any{
+					"action": r.Action, "note": r.Note, "created_at": r.CreatedAt,
+					"kept_id": r.KeptID, "review_after": r.ReviewAfter,
+				})
+			}
+		}
+	}
 	_ = s.Store.InsertAudit(ctx, "read", "experience", &e.ID, e.UID, "mem_get")
 	return &GetResult{
 		Type: "experience",
@@ -78,14 +100,15 @@ func (s *Service) getExperience(ctx context.Context, uid string, includeRaw bool
 			"applies_when": e.AppliesWhen, "invalid_when": e.InvalidWhen,
 			"outcome": e.Outcome, "confidence": e.Confidence, "trust": e.Trust,
 			"conflict_group": nullIfEmpty(e.ConflictGroup),
-			"scope": e.Scope, "scope_ref": e.ScopeRef,
+			"scope":          e.Scope, "scope_ref": e.ScopeRef,
 			"lang": e.Lang, "sensitivity": e.Sensitivity,
 			"t_created": e.TCreated, "use_count": e.UseCount, "rev": e.Rev,
 		},
-		Evidence: ev,
-		Tags:     tags,
-		Related:  related,
-		Lineage:  nil,
+		Evidence:    ev,
+		Tags:        tags,
+		Related:     related,
+		Lineage:     nil,
+		Resolutions: resolutions,
 	}, nil
 }
 
@@ -185,4 +208,72 @@ func nullIfEmpty(s string) any {
 		return nil
 	}
 	return s
+}
+
+// getSource returns a document's metadata plus a directory of its chunks.
+// Chunk text is not included: that is what being background material means.
+func (s *Service) getSource(ctx context.Context, uid string) (*GetResult, error) {
+	src, err := s.Store.GetSourceByUID(ctx, uid)
+	if err != nil {
+		return nil, err
+	}
+	if src == nil {
+		return nil, errs.New(errs.NotFound, "source not found", map[string]any{"uid": uid})
+	}
+	chunks, err := s.Store.ListChunksBySource(ctx, src.ID)
+	if err != nil {
+		return nil, err
+	}
+	dir := make([]map[string]any, 0, len(chunks))
+	for _, c := range chunks {
+		dir = append(dir, map[string]any{
+			"uid": c.UID, "ord": c.Ord, "heading": nullIfEmpty(c.Heading),
+			"char_count": c.CharCount, "preview": trunc(oneLine(c.Text), 120),
+		})
+	}
+	_ = s.Store.InsertAudit(ctx, "read", "source", &src.ID, src.UID, "mem_get")
+	return &GetResult{
+		Type: "source",
+		UID:  src.UID,
+		Entry: map[string]any{
+			"kind": src.Kind, "uri": src.URI, "title": src.Title, "format": src.Format,
+			"char_count": src.CharCount, "chunk_count": src.ChunkCount, "lang": src.Lang,
+			"sensitivity": src.Sensitivity, "status": src.Status,
+			"superseded_by": src.SupersededBy, "project_id": src.ProjectID,
+			"created_at": src.CreatedAt, "use_count": src.UseCount,
+		},
+		Chunks: dir,
+	}, nil
+}
+
+// getChunk returns one slice with its source metadata, so an agent that only
+// has a c_… uid from a pack can read the passage in full.
+func (s *Service) getChunk(ctx context.Context, uid string) (*GetResult, error) {
+	c, err := s.Store.GetChunkByUID(ctx, uid)
+	if err != nil {
+		return nil, err
+	}
+	if c == nil {
+		return nil, errs.New(errs.NotFound, "chunk not found", map[string]any{"uid": uid})
+	}
+	src, _ := s.sourceByID(ctx, c.SourceID)
+	entry := map[string]any{
+		"ord": c.Ord, "heading": nullIfEmpty(c.Heading), "char_count": c.CharCount,
+		"sensitivity": c.Sensitivity, "text": c.Text,
+	}
+	if src != nil {
+		entry["source_uid"] = src.UID
+		entry["source_title"] = src.Title
+		entry["source_status"] = src.Status
+	}
+	_ = s.Store.InsertAudit(ctx, "read", "chunk", &c.ID, c.UID, "mem_get")
+	return &GetResult{Type: "chunk", UID: c.UID, Entry: entry}, nil
+}
+
+func (s *Service) sourceByID(ctx context.Context, id int64) (*store.Source, error) {
+	got, err := s.Store.ListSourcesByIDs(ctx, []int64{id})
+	if err != nil || len(got) == 0 {
+		return nil, err
+	}
+	return &got[0], nil
 }

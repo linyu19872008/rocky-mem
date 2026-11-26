@@ -3,7 +3,6 @@ package core
 import (
 	"context"
 	"encoding/base64"
-	"path/filepath"
 	"strings"
 
 	"github.com/rocky-mem/rocky-mem/internal/errs"
@@ -47,6 +46,9 @@ type IngestConfirmInput struct {
 	Title    string `json:"title,omitempty"`
 	Format   string `json:"format,omitempty"`
 	Cwd      string `json:"cwd,omitempty"`
+	// Mode is corpus (default) or distill. Corpus stores the document as
+	// background material; distill additionally proposes one experience.
+	Mode string `json:"mode,omitempty"`
 }
 
 // IngestPreview extracts text (plain/docx/xlsx/pdf) then runs the redact pack.
@@ -60,7 +62,7 @@ func (s *Service) IngestPreview(_ context.Context, in IngestPreviewInput) (*Inge
 		return nil, mapExtractErr(err)
 	}
 	rr := redact.Apply(ex.Text)
-	chunks := extract.Chunk(ex.Text, 3500)
+	chunks := splitChunks(rr.Text, chunkMaxRunes)
 	notice := ""
 	if ex.Format != extract.FormatPlain {
 		notice = "extracted plain text from " + string(ex.Format) + "; original binary is never shown"
@@ -89,52 +91,6 @@ func (s *Service) IngestPreview(_ context.Context, in IngestPreviewInput) (*Inge
 		Notice:      notice,
 		Unchanged:   rr.Unchanged,
 	}, nil
-}
-
-// IngestConfirm writes a proposed experience from redacted body (+ evidence quote).
-func (s *Service) IngestConfirm(ctx context.Context, in IngestConfirmInput) (*RecordResult, error) {
-	body := strings.TrimSpace(in.Redacted)
-	if body == "" {
-		return nil, errs.New(errs.FieldRequired, "redacted text required", nil)
-	}
-	rr := redact.Apply(body)
-	if rr.Rejected {
-		return nil, errs.New(errs.FieldInvalid, "content rejected by redaction: "+rr.RejectWhy, map[string]any{
-			"reject_why": rr.RejectWhy,
-		})
-	}
-	body = rr.Text
-	title := strings.TrimSpace(in.Title)
-	if title == "" {
-		base := filepath.Base(strings.TrimSpace(in.Filename))
-		if base != "" && base != "." && base != "/" {
-			title = "Ingest: " + base
-		} else {
-			title = "Ingest note"
-		}
-	}
-	ref := strings.TrimSpace(in.Filename)
-	if in.Format != "" {
-		if ref != "" {
-			ref = ref + " (" + in.Format + ")"
-		} else {
-			ref = in.Format
-		}
-	}
-	evText := trunc(body, 2000)
-	return s.Record(ctx, RecordInput{
-		Title:       title,
-		ExpType:     "howto",
-		Symptom:     trunc(firstNonEmptyLine(body), 240),
-		Fix:         trunc(body, 4000),
-		AppliesWhen: "after human ingest review",
-		InvalidWhen: "secrets still visible after redaction",
-		Outcome:     "unknown",
-		Confidence:  0.55,
-		Scope:       "global",
-		Cwd:         in.Cwd,
-		Evidence:    []EvidenceIn{{Type: "quote", Text: evText, Ref: ref}},
-	})
 }
 
 func resolveIngestBytes(in IngestPreviewInput) ([]byte, string, error) {

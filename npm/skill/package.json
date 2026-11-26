@@ -1,0 +1,33 @@
+{
+  "name": "rocky-mem-skill",
+  "version": "0.1.0",
+  "description": "The portable rocky-mem skill: when to consult the engineering experience ledger, how to read a context pack, and when a recorded lesson must not be applied.",
+  "type": "module",
+  "bin": {
+    "rocky-mem-skill": "./install.mjs"
+  },
+  "files": [
+    "SKILL.md",
+    "references",
+    "hosts",
+    "tools.json",
+    "install.mjs",
+    "README.md"
+  ],
+  "scripts": {
+    "prepack": "node sync.mjs"
+  },
+  "keywords": [
+    "dsh-plugin",
+    "skill",
+    "agent",
+    "memory",
+    "experience",
+    "rocky-mem"
+  ],
+  "license": "MIT",
+  "author": "rocky-mem contributors",
+  "engines": {
+    "node": "^22.19.0 || >=24"
+  }
+}

@@ -2,8 +2,11 @@ package api_test
 
 import (
 	"context"
+	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -156,5 +159,128 @@ func TestCookieAuthAndWebSession(t *testing.T) {
 	h.ServeHTTP(rr5, req5)
 	if !strings.Contains(rr5.Body.String(), `"locale":"zh-CN"`) {
 		t.Fatalf("expected zh-CN boot locale, got: %s", rr5.Body.String()[:min(200, rr5.Body.Len())])
+	}
+}
+
+func TestDoctorPublishesContractAndFeatures(t *testing.T) {
+	dir := t.TempDir()
+	st, err := sqlite.Open(filepath.Join(dir, "d.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	if _, err := st.EnsureLocalUser(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	h := (&api.Server{Svc: &core.Service{Store: st}, Token: "t"}).Handler()
+	ts := httptest.NewServer(h)
+	defer ts.Close()
+
+	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/api/v1/doctor", nil)
+	req.Header.Set("Authorization", "Bearer t")
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("status %d", res.StatusCode)
+	}
+	var body struct {
+		Contract int      `json:"contract"`
+		Features []string `json:"features"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Contract < 1 {
+		t.Fatalf("contract = %d", body.Contract)
+	}
+	want := map[string]bool{"context": false, "search": false, "mcp.streamable-http": false}
+	for _, f := range body.Features {
+		if _, ok := want[f]; ok {
+			want[f] = true
+		}
+	}
+	for name, seen := range want {
+		if !seen {
+			t.Fatalf("feature %q missing from %v", name, body.Features)
+		}
+	}
+}
+
+func TestMCPStreamableHTTPHandshake(t *testing.T) {
+	dir := t.TempDir()
+	st, err := sqlite.Open(filepath.Join(dir, "m.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	if _, err := st.EnsureLocalUser(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	h := (&api.Server{Svc: &core.Service{Store: st}, Token: "t"}).Handler()
+	ts := httptest.NewServer(h)
+	defer ts.Close()
+
+	init := `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"test","version":"0"}}}`
+
+	// Without a token the transport must not answer.
+	res, err := http.Post(ts.URL+"/mcp", "application/json", strings.NewReader(init))
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	if res.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("unauthenticated status = %d", res.StatusCode)
+	}
+
+	req, _ := http.NewRequest(http.MethodPost, ts.URL+"/mcp", strings.NewReader(init))
+	req.Header.Set("Authorization", "Bearer t")
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json, text/event-stream")
+	res, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("initialize status = %d", res.StatusCode)
+	}
+	raw, err := io.ReadAll(res.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), `"serverInfo"`) || !strings.Contains(string(raw), "rocky-mem") {
+		t.Fatalf("unexpected initialize body: %s", raw)
+	}
+
+	// Stateless mode: GET is not a stream.
+	req, _ = http.NewRequest(http.MethodGet, ts.URL+"/mcp", nil)
+	req.Header.Set("Authorization", "Bearer t")
+	req.Header.Set("Accept", "text/event-stream")
+	res2, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res2.Body.Close()
+	if res2.StatusCode != http.StatusMethodNotAllowed {
+		t.Fatalf("GET /mcp status = %d", res2.StatusCode)
+	}
+}
+
+func TestContractDocListsEveryFeature(t *testing.T) {
+	doc, err := os.ReadFile("../../docs/contract.md")
+	if err != nil {
+		t.Fatalf("read contract doc: %v", err)
+	}
+	text := string(doc)
+	for _, feature := range api.Features {
+		if !strings.Contains(text, feature) {
+			t.Errorf("docs/contract.md does not mention feature %q", feature)
+		}
+	}
+	if !strings.Contains(text, "contract") {
+		t.Error("docs/contract.md must explain the contract field")
 	}
 }
