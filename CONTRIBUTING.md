@@ -147,6 +147,24 @@ merging rather than after.
 - [ ] No new outbound network calls
 - [ ] No real personal data, credentials or internal hostnames in fixtures
 
+
+## Branches
+
+Branches are disposable; tags are the record. Merging a pull request deletes its
+head branch automatically (`delete_branch_on_merge`), and only `main` is meant to
+live indefinitely.
+
+A branch that was closed without merging, or pushed without a PR, is left alone —
+clean those up explicitly:
+
+```sh
+scripts/prune-merged-branches.sh           # dry run: what would go
+scripts/prune-merged-branches.sh --apply   # delete merged, non-open ones
+```
+
+The script only deletes a branch that has a **merged** PR and **no open** PR, and
+never touches `main`, `master`, or `dependabot/*`.
+
 ## Review
 
 Two things reviewers will push on:
