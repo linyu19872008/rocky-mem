@@ -7,11 +7,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/rocky-mem/rocky-mem/internal/config"
-	"github.com/rocky-mem/rocky-mem/internal/core"
-	"github.com/rocky-mem/rocky-mem/internal/errs"
-	"github.com/rocky-mem/rocky-mem/internal/mcpserver"
-	"github.com/rocky-mem/rocky-mem/internal/web"
+	"github.com/linyu19872008/rocky-mem/internal/config"
+	"github.com/linyu19872008/rocky-mem/internal/core"
+	"github.com/linyu19872008/rocky-mem/internal/errs"
+	"github.com/linyu19872008/rocky-mem/internal/mcpserver"
+	"github.com/linyu19872008/rocky-mem/internal/web"
 )
 
 // Server wraps core.Service with bearer-token auth.

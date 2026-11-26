@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rocky-mem/rocky-mem/internal/store"
-	"github.com/rocky-mem/rocky-mem/internal/store/conformance"
-	"github.com/rocky-mem/rocky-mem/internal/store/postgres"
+	"github.com/linyu19872008/rocky-mem/internal/store"
+	"github.com/linyu19872008/rocky-mem/internal/store/conformance"
+	"github.com/linyu19872008/rocky-mem/internal/store/postgres"
 )
 
 // TestPostgresConformance runs the shared Suite against PostgreSQL.

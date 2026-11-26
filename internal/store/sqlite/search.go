@@ -7,8 +7,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/rocky-mem/rocky-mem/internal/store"
-	"github.com/rocky-mem/rocky-mem/internal/textnorm"
+	"github.com/linyu19872008/rocky-mem/internal/store"
+	"github.com/linyu19872008/rocky-mem/internal/textnorm"
 )
 
 // WriteSearchDoc upserts search_doc and FTS in the three-step SQLite contract.

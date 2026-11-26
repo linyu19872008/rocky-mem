@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/rocky-mem/rocky-mem/internal/daemon"
+	"github.com/linyu19872008/rocky-mem/internal/daemon"
 )
 
 func TestLockExclusive(t *testing.T) {

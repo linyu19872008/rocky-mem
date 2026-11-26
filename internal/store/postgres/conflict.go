@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/rocky-mem/rocky-mem/internal/store"
+	"github.com/linyu19872008/rocky-mem/internal/store"
 )
 
 func (db *DB) UpdateExperienceConditions(ctx context.Context, id int64, appliesWhen, invalidWhen string) error {

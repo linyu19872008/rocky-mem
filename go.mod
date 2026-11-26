@@ -1,4 +1,4 @@
-module github.com/rocky-mem/rocky-mem
+module github.com/linyu19872008/rocky-mem
 
 go 1.26.4
 

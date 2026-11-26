@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rocky-mem/rocky-mem/internal/core"
-	"github.com/rocky-mem/rocky-mem/internal/store/sqlite"
+	"github.com/linyu19872008/rocky-mem/internal/core"
+	"github.com/linyu19872008/rocky-mem/internal/store/sqlite"
 )
 
 func TestBackupAndRestore(t *testing.T) {

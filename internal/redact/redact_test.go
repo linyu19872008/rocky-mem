@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rocky-mem/rocky-mem/internal/redact"
+	"github.com/linyu19872008/rocky-mem/internal/redact"
 )
 
 func TestApplyUnchanged(t *testing.T) {

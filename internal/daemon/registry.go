@@ -16,7 +16,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/rocky-mem/rocky-mem/internal/config"
+	"github.com/linyu19872008/rocky-mem/internal/config"
 )
 
 const registryFile = "daemon.json"

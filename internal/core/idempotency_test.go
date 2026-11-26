@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/rocky-mem/rocky-mem/internal/core"
-	"github.com/rocky-mem/rocky-mem/internal/errs"
-	"github.com/rocky-mem/rocky-mem/internal/store/sqlite"
+	"github.com/linyu19872008/rocky-mem/internal/core"
+	"github.com/linyu19872008/rocky-mem/internal/errs"
+	"github.com/linyu19872008/rocky-mem/internal/store/sqlite"
 )
 
 func TestRememberIdempotentAndCAS(t *testing.T) {

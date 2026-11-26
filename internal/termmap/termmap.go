@@ -6,7 +6,7 @@ import (
 	"sync"
 	"unicode/utf8"
 
-	"github.com/rocky-mem/rocky-mem/data"
+	"github.com/linyu19872008/rocky-mem/data"
 	"gopkg.in/yaml.v3"
 )
 

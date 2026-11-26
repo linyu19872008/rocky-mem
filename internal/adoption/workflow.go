@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rocky-mem/rocky-mem/internal/core"
+	"github.com/linyu19872008/rocky-mem/internal/core"
 )
 
 // WorkflowResult is the outcome of a Tier-0 adoption simulation.

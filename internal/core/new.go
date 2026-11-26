@@ -1,8 +1,8 @@
 package core
 
 import (
-	"github.com/rocky-mem/rocky-mem/internal/store"
-	"github.com/rocky-mem/rocky-mem/internal/termmap"
+	"github.com/linyu19872008/rocky-mem/internal/store"
+	"github.com/linyu19872008/rocky-mem/internal/termmap"
 )
 
 // NewService builds a Service with the embedded term map when available.

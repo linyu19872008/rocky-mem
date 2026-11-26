@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/rocky-mem/rocky-mem/internal/config"
+	"github.com/linyu19872008/rocky-mem/internal/config"
 )
 
 const (

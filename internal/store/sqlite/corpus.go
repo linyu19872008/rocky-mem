@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/rocky-mem/rocky-mem/internal/store"
+	"github.com/linyu19872008/rocky-mem/internal/store"
 )
 
 const sourceCols = `id, uid, kind, uri, title, format, text_hash, char_count, chunk_count,

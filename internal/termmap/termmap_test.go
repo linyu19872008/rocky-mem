@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rocky-mem/rocky-mem/internal/termmap"
+	"github.com/linyu19872008/rocky-mem/internal/termmap"
 )
 
 func TestExpandConfigMap(t *testing.T) {

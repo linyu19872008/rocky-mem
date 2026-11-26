@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/rocky-mem/rocky-mem/internal/store"
+	"github.com/linyu19872008/rocky-mem/internal/store"
 )
 
 func (db *DB) ListExperiencesByTrust(ctx context.Context, trusts []string, limit int) ([]store.Experience, error) {

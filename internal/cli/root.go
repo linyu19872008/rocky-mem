@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/rocky-mem/rocky-mem/internal/version"
+	"github.com/linyu19872008/rocky-mem/internal/version"
 	"github.com/spf13/cobra"
 )
 

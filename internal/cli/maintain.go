@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rocky-mem/rocky-mem/internal/config"
-	"github.com/rocky-mem/rocky-mem/internal/core"
-	"github.com/rocky-mem/rocky-mem/internal/daemon"
-	"github.com/rocky-mem/rocky-mem/internal/eval"
+	"github.com/linyu19872008/rocky-mem/internal/config"
+	"github.com/linyu19872008/rocky-mem/internal/core"
+	"github.com/linyu19872008/rocky-mem/internal/daemon"
+	"github.com/linyu19872008/rocky-mem/internal/eval"
 	"github.com/spf13/cobra"
 )
 

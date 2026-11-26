@@ -1,0 +1,47 @@
+# Release binaries for every platform the design promises (single static
+# binary). The web SPA is embedded, so CI builds web/dist before this runs.
+version: 2
+project_name: rockymem
+
+builds:
+  - id: rockymem
+    main: ./cmd/rockymem
+    binary: rockymem
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - formats: [tar.gz]
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  use: github
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^ci:'
+      - '^chore:'
+
+release:
+  draft: false
+  prerelease: auto

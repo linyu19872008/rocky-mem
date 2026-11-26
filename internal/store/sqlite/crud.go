@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rocky-mem/rocky-mem/internal/store"
+	"github.com/linyu19872008/rocky-mem/internal/store"
 )
 
 func (db *DB) EnsureLocalUser(ctx context.Context) (int64, error) {

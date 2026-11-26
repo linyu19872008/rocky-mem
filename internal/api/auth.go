@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/rocky-mem/rocky-mem/internal/errs"
-	"github.com/rocky-mem/rocky-mem/internal/web"
+	"github.com/linyu19872008/rocky-mem/internal/errs"
+	"github.com/linyu19872008/rocky-mem/internal/web"
 )
 
 func (s *Server) auth(next http.HandlerFunc) http.HandlerFunc {

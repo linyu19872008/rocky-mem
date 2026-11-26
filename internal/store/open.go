@@ -3,7 +3,7 @@ package store
 import (
 	"fmt"
 
-	"github.com/rocky-mem/rocky-mem/internal/config"
+	"github.com/linyu19872008/rocky-mem/internal/config"
 )
 
 // Opener opens a store given the ParseDSN "rest" (path or full postgres DSN).
