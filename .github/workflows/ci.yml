@@ -21,18 +21,18 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7
         with:
           go-version: '1.26.x'
           cache: true
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6
         with:
           version: 9
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: '22'
           cache: pnpm
@@ -95,15 +95,46 @@ jobs:
             -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' \
             | grep -q 'mem_search'
 
+  # The PostgreSQL backend had no automated evidence at all: the conformance
+  # suite skips unless ROCKYMEM_TEST_PG_DSN is set, and it never was.
+  postgres:
+    name: postgres
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: rocky
+          POSTGRES_PASSWORD: rocky
+          POSTGRES_DB: rocky
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U rocky -d rocky"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7
+        with:
+          go-version: '1.26.x'
+          cache: true
+      - name: Conformance against PostgreSQL
+        env:
+          ROCKYMEM_TEST_PG_DSN: postgres://rocky:rocky@127.0.0.1:5432/rocky?sslmode=disable
+        run: go test ./internal/store/conformance/ -run TestPostgresConformance -v
+
   # A stable check name for branch protection: matrix legs report
   # "test (ubuntu-latest) / test (macos-latest)", which changes whenever the matrix does.
   test:
     name: test
-    needs: [matrix]
+    needs: [matrix, postgres]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Matrix gate
         run: |
-          echo "matrix result: ${{ needs.matrix.result }}"
+          echo "matrix=${{ needs.matrix.result }} postgres=${{ needs.postgres.result }}"
           [ "${{ needs.matrix.result }}" = "success" ] || exit 1
+          [ "${{ needs.postgres.result }}" = "success" ] || exit 1

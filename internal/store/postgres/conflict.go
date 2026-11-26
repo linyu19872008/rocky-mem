@@ -18,14 +18,13 @@ func (db *DB) InsertResolution(ctx context.Context, r store.ConflictResolution) 
 	if r.CreatedAt == 0 {
 		r.CreatedAt = now()
 	}
-	res, err := db.q().ExecContext(ctx,
+	// pgx implements database/sql without LastInsertId; RETURNING is the
+	// portable way to read the new id on PostgreSQL.
+	var id int64
+	err := db.q().QueryRowContext(ctx,
 		`INSERT INTO conflict_resolution(group_id, action, kept_id, note, actor_id, review_after, created_at)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-		r.GroupID, r.Action, r.KeptID, r.Note, r.ActorID, r.ReviewAfter, r.CreatedAt)
-	if err != nil {
-		return store.ConflictResolution{}, err
-	}
-	id, err := res.LastInsertId()
+		 VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
+		r.GroupID, r.Action, r.KeptID, r.Note, r.ActorID, r.ReviewAfter, r.CreatedAt).Scan(&id)
 	if err != nil {
 		return store.ConflictResolution{}, err
 	}
