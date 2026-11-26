@@ -13,8 +13,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
-    name: test
+  matrix:
+    name: matrix
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -94,3 +94,16 @@ jobs:
             -H "Accept: application/json, text/event-stream" \
             -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' \
             | grep -q 'mem_search'
+
+  # A stable check name for branch protection: matrix legs report
+  # "test (ubuntu-latest) / test (macos-latest)", which changes whenever the matrix does.
+  test:
+    name: test
+    needs: [matrix]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Matrix gate
+        run: |
+          echo "matrix result: ${{ needs.matrix.result }}"
+          [ "${{ needs.matrix.result }}" = "success" ] || exit 1
