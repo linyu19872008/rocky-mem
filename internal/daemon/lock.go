@@ -5,10 +5,13 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"syscall"
 )
 
-// Lock is an exclusive flock on the store lockfile.
+// Lock is an exclusive lock on the store lockfile.
+//
+// The OS-level primitive differs (flock on Unix, LockFileEx on Windows) but the
+// contract does not: a second holder fails immediately, and the lock disappears
+// with the process that holds it.
 type Lock struct {
 	path string
 	file *os.File
@@ -23,7 +26,7 @@ func Acquire(path string) (*Lock, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+	if err := lockFile(f); err != nil {
 		_ = f.Close()
 		return nil, fmt.Errorf("store locked (is `rockymem serve` running?): %w", err)
 	}
@@ -33,12 +36,12 @@ func Acquire(path string) (*Lock, error) {
 	return &Lock{path: path, file: f}, nil
 }
 
-// Unlock releases the flock and closes the file.
+// Unlock releases the lock and closes the file.
 func (l *Lock) Unlock() error {
 	if l == nil || l.file == nil {
 		return nil
 	}
-	_ = syscall.Flock(int(l.file.Fd()), syscall.LOCK_UN)
+	_ = unlockFile(l.file)
 	err := l.file.Close()
 	l.file = nil
 	return err
