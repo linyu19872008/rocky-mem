@@ -28,12 +28,12 @@ type RememberInput struct {
 
 // RememberResult is the write acknowledgement.
 type RememberResult struct {
-	UID           string `json:"uid"`
-	Lineage       string `json:"lineage"`
-	Status        string `json:"status"`
-	Rev           int    `json:"rev"`
-	SupersededUID string `json:"superseded_uid,omitempty"`
-	ReviewRequired bool  `json:"review_required"`
+	UID            string `json:"uid"`
+	Lineage        string `json:"lineage"`
+	Status         string `json:"status"`
+	Rev            int    `json:"rev"`
+	SupersededUID  string `json:"superseded_uid,omitempty"`
+	ReviewRequired bool   `json:"review_required"`
 }
 
 // Remember upserts a memory row.

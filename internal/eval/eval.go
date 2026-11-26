@@ -41,19 +41,19 @@ type Query struct {
 
 // Report summarises one eval run.
 type Report struct {
-	Queries    int     `json:"queries"`
-	Hits       int     `json:"hits"`
-	Misses     int     `json:"misses"`
-	RecallAt10 float64 `json:"recall_at_10"`
+	Queries    int       `json:"queries"`
+	Hits       int       `json:"hits"`
+	Misses     int       `json:"misses"`
+	RecallAt10 float64   `json:"recall_at_10"`
 	Details    []QDetail `json:"details,omitempty"`
 }
 
 // QDetail is per-query outcome.
 type QDetail struct {
-	Query   string   `json:"query"`
-	Want    []string `json:"want"`
-	GotIDs  []string `json:"got_ids"`
-	Hit     bool     `json:"hit"`
+	Query  string   `json:"query"`
+	Want   []string `json:"want"`
+	GotIDs []string `json:"got_ids"`
+	Hit    bool     `json:"hit"`
 }
 
 // DefaultCorpusPath resolves testdata/eval/corpus.json next to this package.

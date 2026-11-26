@@ -46,6 +46,13 @@ jobs:
           pnpm --dir web i18n:check
           pnpm --dir web build
 
+      - name: Format
+        run: |
+          unformatted="$(gofmt -l ./cmd ./internal)"
+          if [ -n "$unformatted" ]; then
+            echo "gofmt needed on:"; echo "$unformatted"; exit 1
+          fi
+
       - name: Vet
         run: go vet ./...
 

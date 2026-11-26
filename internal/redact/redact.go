@@ -38,15 +38,15 @@ type Span struct {
 
 // Result of a redaction pass.
 type Result struct {
-	Text       string
-	Hits       map[string]int
-	Spans      []Span
-	Segments   []Segment
-	Level      int  // 1..3; 4 means reject
-	Rejected   bool // L4: never persist
-	RejectWhy  string
-	RulePack   string
-	Unchanged  bool
+	Text      string
+	Hits      map[string]int
+	Spans     []Span
+	Segments  []Segment
+	Level     int  // 1..3; 4 means reject
+	Rejected  bool // L4: never persist
+	RejectWhy string
+	RulePack  string
+	Unchanged bool
 }
 
 type match struct {

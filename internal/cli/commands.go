@@ -7,7 +7,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/linyu19872008/rocky-mem/internal/client"
 	"github.com/linyu19872008/rocky-mem/internal/config"
 	"github.com/linyu19872008/rocky-mem/internal/core"
@@ -15,6 +14,7 @@ import (
 	"github.com/linyu19872008/rocky-mem/internal/store"
 	_ "github.com/linyu19872008/rocky-mem/internal/store/postgres"
 	_ "github.com/linyu19872008/rocky-mem/internal/store/sqlite"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/spf13/cobra"
 )
 
