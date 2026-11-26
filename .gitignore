@@ -5,7 +5,11 @@
 dist/
 web/node_modules/
 web/dist/
-internal/web/dist/
+internal/web/dist/*
+!internal/web/dist/index.html
+!internal/web/dist/assets/
+!internal/web/dist/assets/**
+internal/web/dist/**/*.map
 .DS_Store
 coverage.out
 *.exe

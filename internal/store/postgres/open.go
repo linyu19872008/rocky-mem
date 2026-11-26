@@ -75,6 +75,14 @@ func open(dsn, schema string) (*DB, error) {
 			_ = sqlDB.Close()
 			return nil, fmt.Errorf("create schema %s: %w", schema, err)
 		}
+		// pg_trgm must live somewhere the search_path always sees. The migration
+		// creates it without a schema, which would install it into whichever
+		// schema happens to be first — so the first isolated schema works and
+		// every later one fails on `gin_trgm_ops`. Install it into public first.
+		if _, err := sqlDB.Exec(`CREATE EXTENSION IF NOT EXISTS pg_trgm SCHEMA public`); err != nil {
+			_ = sqlDB.Close()
+			return nil, fmt.Errorf("create extension pg_trgm: %w", err)
+		}
 		// Keep public on the path so pg_trgm operator classes resolve.
 		if _, err := sqlDB.Exec(`SET search_path TO ` + schema + `, public`); err != nil {
 			_ = sqlDB.Close()

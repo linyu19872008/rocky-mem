@@ -22,7 +22,7 @@
 ---
 
 > **本译文的基准是 `README.md`；英文版为唯一真相，本页可能滞后。**
-> 当前进度：**Solo 可用 — v0.2.1** — Cookie 鉴权 React UI（知识库 / 记住 / 记录经验 / 投喂 / 审核）、
+> 当前进度：**Solo 可用 — v0.2.2** — Cookie 鉴权 React UI（知识库 / 记住 / 记录经验 / 投喂 / 审核）、
 > 文件投喂（默认存为语料）、冲突裁定、备份与术语扩展；验收 `make verify-tier3`
 >（[docs/web.md](docs/web.md)、[docs/ingest.md](docs/ingest.md)）。
 > **PostgreSQL Open + conformance 已落地；团队鉴权仍属后续。** `design/DESIGN.md` 等为中文；契约与工程文档为英文，
