@@ -1,0 +1,66 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          cache: true
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      # internal/web embeds web/dist, so the SPA must exist before go build.
+      - name: Build web assets
+        run: |
+          pnpm --dir web install --frozen-lockfile
+          pnpm --dir web build
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test ./...
+
+      - name: Skill / contract / error-code agreement
+        run: node scripts/check-skill-versions.mjs
+
+      - name: Build binary
+        run: go build -o bin/rockymem ./cmd/rockymem
+
+      - name: Smoke the MCP surface (stdio + HTTP)
+        run: |
+          set -euo pipefail
+          DSN="sqlite://$PWD/.local/ci.db"
+          mkdir -p .local
+          ./bin/rockymem --dsn "$DSN" serve --no-web --bind 127.0.0.1:7433 &
+          SERVER=$!
+          trap 'kill $SERVER 2>/dev/null || true' EXIT
+          for i in $(seq 1 50); do
+            curl -sf -o /dev/null "http://127.0.0.1:7433/health" && break || sleep 0.1
+          done
+          TOKEN="$(cat .local/ci.token)"
+          curl -sf -H "Authorization: Bearer $TOKEN" http://127.0.0.1:7433/api/v1/doctor \
+            | grep -q '"mcp.streamable-http"'
+          curl -sf -X POST http://127.0.0.1:7433/mcp \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            -H "Accept: application/json, text/event-stream" \
+            -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' \
+            | grep -q 'mem_search'

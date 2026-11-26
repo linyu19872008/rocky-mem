@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -62,6 +63,15 @@ type SectionCount struct {
 	Count int    `json:"count"`
 }
 
+// Corpus caps: background material must never crowd out lessons.
+const (
+	chunkCandidatesDefault  = 2
+	chunkPerSourceDefault   = 1
+	chunkCandidatesExplicit = 5
+	chunkPerSourceExplicit  = 2
+	chunkExcerptRunes       = 200
+)
+
 // Context returns standing preferences for a working directory.
 func (s *Service) Context(ctx context.Context, in ContextInput) (*PackResult, error) {
 	if in.BudgetTokens <= 0 {
@@ -72,7 +82,7 @@ func (s *Service) Context(ctx context.Context, in ContextInput) (*PackResult, er
 		n := "degraded:project_unresolved"
 		resolved = &ScopeResolved{Scope: "global"}
 		mems, _ := s.Store.ListActiveMemory(ctx, readScopes(resolved), 20)
-		pack, uids, trunc, omitted := assemblePreferences(mems, nil, nil, in.BudgetTokens)
+		pack, uids, trunc, omitted := assemblePreferences(mems, nil, in.BudgetTokens)
 		return &PackResult{
 			Pack: pack, UIDs: uids, Truncated: trunc, Omitted: omitted,
 			ScopeResolved: resolved, Notice: &n, RequestID: uid.Request(),
@@ -91,7 +101,7 @@ func (s *Service) Context(ctx context.Context, in ContextInput) (*PackResult, er
 		exps, _ = s.Store.ListExperiencesByIDs(ctx, ids)
 		exps = filterVisible(exps, true)
 	}
-	pack, uids, trunc, omitted := assemblePreferences(mems, exps, nil, in.BudgetTokens)
+	pack, uids, trunc, omitted := assemblePreferences(mems, exps, in.BudgetTokens)
 	_ = s.Store.InsertAudit(ctx, "read", "pack", nil, "", "mem_context")
 	return &PackResult{
 		Pack: pack, UIDs: uids, Truncated: trunc, Omitted: omitted,
@@ -120,7 +130,9 @@ func (s *Service) Search(ctx context.Context, in SearchInput) (*PackResult, erro
 
 	kinds := in.Kinds
 	if len(kinds) == 0 {
-		kinds = []string{"memory", "experience"}
+		// Corpus is included by default but capped hard (see maxChunks below):
+		// an agent should not have to know to ask for background material.
+		kinds = []string{"memory", "experience", "chunk"}
 	}
 
 	expanded := []struct {
@@ -139,14 +151,24 @@ func (s *Service) Search(ctx context.Context, in SearchInput) (*PackResult, erro
 
 	var mems []store.Memory
 	var exps []store.Experience
+	var chunks []store.Chunk
 	candByKind := map[string][]store.Candidate{}
+
+	// Corpus entries are background material: they must never crowd out
+	// lessons, so they are capped tighter unless the caller asked for them.
+	maxChunks, maxPerSource := chunkCandidatesDefault, chunkPerSourceDefault
+	if slices.Contains(in.Kinds, "chunk") {
+		maxChunks, maxPerSource = chunkCandidatesExplicit, chunkPerSourceExplicit
+	}
 
 	for _, k := range kinds {
 		switch k {
-		case "chunk", "source":
+		case "source":
+			// Sources are containers; only their chunks are indexed.
 			return nil, errs.New(errs.NotImplemented, "search kind not available yet", map[string]any{
 				"feature": "kinds:" + k,
 			})
+		case "chunk":
 		case "memory", "experience":
 			// ok
 		default:
@@ -187,6 +209,8 @@ func (s *Service) Search(ctx context.Context, in SearchInput) (*PackResult, erro
 			ids := ownerIDs(cands, "experience")
 			got, _ := s.Store.ListExperiencesByIDs(ctx, ids)
 			exps = append(exps, rerankExperiences(got, in.Query, resolved, in.IncludeProposed)...)
+		case "chunk":
+			chunks = append(chunks, s.hydrateChunks(ctx, cands, maxChunks, maxPerSource)...)
 		}
 	}
 
@@ -194,16 +218,21 @@ func (s *Service) Search(ctx context.Context, in SearchInput) (*PackResult, erro
 	standing, _ := s.Store.ListActiveMemory(ctx, readScopes(resolved), 10)
 	mems = mergeMemories(standing, mems)
 
+	exps = clusterByGroup(exps)
 	if len(exps) > in.Limit {
 		exps = exps[:in.Limit]
 	}
 
-	pack, uids, truncated, omitted := assemblePack(mems, exps, in.BudgetTokens)
+	sources := s.sourcesFor(ctx, chunks)
+	pack, uids, truncated, omitted := assemblePack(mems, exps, chunks, sources, in.BudgetTokens)
 	for _, m := range mems {
 		_ = s.Store.BumpUse(ctx, "memory", m.ID, time.Now().Unix())
 	}
 	for _, e := range exps {
 		_ = s.Store.BumpUse(ctx, "experience", e.ID, time.Now().Unix())
+	}
+	for _, c := range chunks {
+		_ = s.Store.BumpUse(ctx, "chunk", c.ID, time.Now().Unix())
 	}
 	_ = s.Store.InsertAudit(ctx, "read", "pack", nil, "", "mem_search:"+in.Query)
 
@@ -213,19 +242,30 @@ func (s *Service) Search(ctx context.Context, in SearchInput) (*PackResult, erro
 		notice = &n
 	}
 	return &PackResult{
-		Pack: pack, UIDs: uids, Hits: buildHits(mems, exps, uids),
+		Pack: pack, UIDs: uids, Hits: buildHits(mems, exps, chunks, sources, uids),
 		Truncated: truncated, Omitted: omitted,
 		ScopeResolved: resolved, Notice: notice, RequestID: uid.Request(),
 		Sections: sectionCounts(pack),
 	}, nil
 }
 
-func buildHits(mems []store.Memory, exps []store.Experience, uids []string) []HitSummary {
+func buildHits(mems []store.Memory, exps []store.Experience, chunks []store.Chunk, sources map[int64]store.Source, uids []string) []HitSummary {
 	byUID := map[string]HitSummary{}
 	for _, m := range mems {
 		byUID[m.UID] = HitSummary{
 			UID: m.UID, Kind: "memory", Title: m.Title, Trust: m.Status,
 			Preview: trunc(m.BodyMD, 160),
+		}
+	}
+	for _, c := range chunks {
+		src := sources[c.SourceID]
+		title := src.Title
+		if c.Heading != "" {
+			title = title + " · " + c.Heading
+		}
+		byUID[c.UID] = HitSummary{
+			UID: c.UID, Kind: "chunk", Title: title, Trust: src.Status,
+			Preview: trunc(oneLine(c.Text), 160),
 		}
 	}
 	for _, e := range exps {
@@ -357,11 +397,11 @@ func rerankExperiences(exps []store.Experience, query string, resolved *ScopeRes
 	return out
 }
 
-func assemblePreferences(mems []store.Memory, exps []store.Experience, _ any, budget int) (string, []string, bool, int) {
-	return assemblePack(mems, exps, budget)
+func assemblePreferences(mems []store.Memory, exps []store.Experience, budget int) (string, []string, bool, int) {
+	return assemblePack(mems, exps, nil, nil, budget)
 }
 
-func assemblePack(mems []store.Memory, exps []store.Experience, budget int) (string, []string, bool, int) {
+func assemblePack(mems []store.Memory, exps []store.Experience, chunks []store.Chunk, sources map[int64]store.Source, budget int) (string, []string, bool, int) {
 	var prefs, applies, donot, bg []string
 	var uids []string
 	used := 0
@@ -386,6 +426,25 @@ func assemblePack(mems []store.Memory, exps []store.Experience, budget int) (str
 			break
 		}
 	}
+	peersByGroup := map[string][]string{}
+	for _, e := range exps {
+		if e.ConflictGroup != "" {
+			peersByGroup[e.ConflictGroup] = append(peersByGroup[e.ConflictGroup], e.UID)
+		}
+	}
+	peersOf := func(e store.Experience) []string {
+		if e.ConflictGroup == "" {
+			return nil
+		}
+		var out []string
+		for _, u := range peersByGroup[e.ConflictGroup] {
+			if u != e.UID {
+				out = append(out, u)
+			}
+		}
+		return out
+	}
+
 	for _, e := range exps {
 		if e.Outcome == "failed" {
 			line := fmt.Sprintf("- %s: %s（试过，不行 · %s）", e.Title, trunc(e.Symptom, 120), e.UID)
@@ -394,8 +453,21 @@ func assemblePack(mems []store.Memory, exps []store.Experience, budget int) (str
 			}
 			continue
 		}
-		block := fmtExpBlock(e, "see evidence chain")
+		block := fmtExpBlock(e, "see evidence chain", peersOf(e))
 		if !add(&applies, block, e.UID) {
+			break
+		}
+	}
+	// Corpus goes last and only while 30% of the budget remains: an excerpt
+	// must never displace a lesson.
+	bgBudget := budget * 7 / 10
+	for i, c := range chunks {
+		if used > bgBudget {
+			omitted += len(chunks) - i
+			truncated = true
+			break
+		}
+		if !add(&bg, fmtChunkLine(sources[c.SourceID], c), c.UID) {
 			break
 		}
 	}
@@ -457,6 +529,108 @@ func sectionCounts(pack string) []SectionCount {
 			count = strings.Count(section, "\n- ") + strings.Count(section, "\n### ")
 		}
 		out = append(out, SectionCount{Name: names[i], Count: count})
+	}
+	return out
+}
+
+func (s *Service) hydrateChunks(ctx context.Context, cands []store.Candidate, max, maxPerSource int) []store.Chunk {
+	ids := ownerIDs(cands, "chunk")
+	if len(ids) == 0 {
+		return nil
+	}
+	got, err := s.Store.ListActiveChunksByIDs(ctx, ids)
+	if err != nil {
+		return nil
+	}
+	order := map[int64]int{}
+	for _, c := range cands {
+		if _, ok := order[c.OwnerID]; !ok {
+			order[c.OwnerID] = len(order)
+		}
+	}
+	sort.SliceStable(got, func(i, j int) bool { return order[got[i].ID] < order[got[j].ID] })
+
+	out := make([]store.Chunk, 0, max)
+	perSource := map[int64]int{}
+	for _, c := range got {
+		if len(out) >= max {
+			break
+		}
+		if perSource[c.SourceID] >= maxPerSource {
+			continue
+		}
+		perSource[c.SourceID]++
+		out = append(out, c)
+	}
+	return out
+}
+
+func (s *Service) sourcesFor(ctx context.Context, chunks []store.Chunk) map[int64]store.Source {
+	out := map[int64]store.Source{}
+	if len(chunks) == 0 {
+		return out
+	}
+	seen := map[int64]bool{}
+	var ids []int64
+	for _, c := range chunks {
+		if !seen[c.SourceID] {
+			seen[c.SourceID] = true
+			ids = append(ids, c.SourceID)
+		}
+	}
+	got, err := s.Store.ListSourcesByIDs(ctx, ids)
+	if err != nil {
+		return out
+	}
+	for _, src := range got {
+		out[src.ID] = src
+	}
+	return out
+}
+
+func fmtChunkLine(src store.Source, c store.Chunk) string {
+	title := src.Title
+	if title == "" {
+		title = "untitled source"
+	}
+	var b strings.Builder
+	b.WriteString("- 《" + title + "》")
+	if c.Heading != "" {
+		b.WriteString(" §" + c.Heading)
+	}
+	b.WriteString(" — " + trunc(oneLine(c.Text), chunkExcerptRunes))
+	b.WriteString(" (" + c.UID + ")")
+	return b.String()
+}
+
+func oneLine(s string) string {
+	return strings.Join(strings.Fields(strings.ReplaceAll(s, "\n", " ")), " ")
+}
+
+// clusterByGroup keeps members of one conflict group adjacent, so a split pair
+// is read as a pair instead of two unrelated paragraphs. Stable: it only moves
+// group siblings up next to their first occurrence.
+func clusterByGroup(exps []store.Experience) []store.Experience {
+	if len(exps) < 2 {
+		return exps
+	}
+	seen := map[string]bool{}
+	out := make([]store.Experience, 0, len(exps))
+	for i, e := range exps {
+		if e.ConflictGroup == "" {
+			out = append(out, e)
+			continue
+		}
+		if seen[e.ConflictGroup] {
+			continue
+		}
+		seen[e.ConflictGroup] = true
+		out = append(out, e)
+		for j := i + 1; j < len(exps); j++ {
+			if exps[j].ConflictGroup == e.ConflictGroup {
+				out = append(out, exps[j])
+			}
+		}
 	}
 	return out
 }

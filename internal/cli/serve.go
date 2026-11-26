@@ -14,7 +14,9 @@ import (
 	"github.com/rocky-mem/rocky-mem/internal/config"
 	"github.com/rocky-mem/rocky-mem/internal/core"
 	"github.com/rocky-mem/rocky-mem/internal/daemon"
-	"github.com/rocky-mem/rocky-mem/internal/store/sqlite"
+	"github.com/rocky-mem/rocky-mem/internal/store"
+	_ "github.com/rocky-mem/rocky-mem/internal/store/postgres"
+	_ "github.com/rocky-mem/rocky-mem/internal/store/sqlite"
 	"github.com/spf13/cobra"
 )
 
@@ -26,18 +28,28 @@ func cmdServe() *cobra.Command {
 		Use:   "serve",
 		Short: "Run the local daemon (exclusive store owner + /api/v1)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_, path, err := config.ParseDSN(flagDSN)
+			driver, rest, err := config.ParseDSN(flagDSN)
 			if err != nil {
 				return err
 			}
-			paths := daemon.PathsForDB(path)
-			lock, err := daemon.Acquire(paths.Lock)
+			paths, err := daemon.PathsForDriver(driver, rest)
 			if err != nil {
 				return err
 			}
-			defer lock.Unlock()
 
-			st, err := sqlite.Open(path)
+			var unlock func() error
+			if driver == "sqlite" {
+				lock, err := daemon.Acquire(paths.Lock)
+				if err != nil {
+					return err
+				}
+				unlock = lock.Unlock
+			} else {
+				unlock = func() error { return nil }
+			}
+			defer unlock()
+
+			st, _, _, err := store.OpenDSN(flagDSN)
 			if err != nil {
 				return err
 			}
@@ -63,6 +75,8 @@ func cmdServe() *cobra.Command {
 				return err
 			}
 			defer daemon.ClearDiscovery(paths)
+			_ = daemon.WriteRegistry("http://"+addr, token, flagDSN)
+			defer daemon.ClearRegistry()
 
 			svc := core.NewService(st)
 			handler := (&api.Server{Svc: svc, Token: token, EnableWeb: !noWeb}).Handler()
@@ -81,7 +95,10 @@ func cmdServe() *cobra.Command {
 			if minted {
 				tokenNote = "created"
 			}
-			fmt.Fprintf(os.Stderr, "rockymem serve listening on %s\n  db: %s\n  token file (MCP/CLI): %s (%s)\n", baseURL, path, paths.Token, tokenNote)
+			fmt.Fprintf(os.Stderr, "rockymem serve listening on %s\n  db: %s\n  token file (MCP/CLI): %s (%s)\n", baseURL, rest, paths.Token, tokenNote)
+			fmt.Fprintf(os.Stderr, "  MCP: %s/mcp (Streamable HTTP, Bearer; stateless)\n", baseURL)
+			fmt.Fprintf(os.Stderr, "  MCP: rockymem mcp (stdio proxy, no token argument needed)\n")
+			fmt.Fprintf(os.Stderr, "  capabilities: GET %s/api/v1/doctor\n", baseURL)
 			if !noWeb {
 				fmt.Fprintf(os.Stderr, "  open in browser (cookie auth, no Bearer needed):\n")
 				fmt.Fprintf(os.Stderr, "    %s/\n", baseURL)

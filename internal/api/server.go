@@ -10,6 +10,7 @@ import (
 	"github.com/rocky-mem/rocky-mem/internal/config"
 	"github.com/rocky-mem/rocky-mem/internal/core"
 	"github.com/rocky-mem/rocky-mem/internal/errs"
+	"github.com/rocky-mem/rocky-mem/internal/mcpserver"
 	"github.com/rocky-mem/rocky-mem/internal/web"
 )
 
@@ -42,6 +43,16 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/purge", s.auth(s.handlePurge))
 	mux.HandleFunc("POST /api/v1/export", s.auth(s.handleExport))
 	mux.HandleFunc("POST /api/v1/backup", s.auth(s.handleBackup))
+
+	// MCP over Streamable HTTP. Same bearer token as REST; stateless so any
+	// number of agents can share one daemon without session affinity.
+	mcpHandler := mcpserver.StreamableHandler(mcpserver.New(s.Svc))
+	for _, pattern := range []string{
+		"POST /mcp", "GET /mcp", "DELETE /mcp",
+		"POST /mcp/", "GET /mcp/", "DELETE /mcp/",
+	} {
+		mux.Handle(pattern, s.auth(mcpHandler.ServeHTTP))
+	}
 	if s.EnableWeb {
 		web.Mount(mux, s.Token)
 	}
@@ -58,7 +69,7 @@ func (s *Server) handleDoctor(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, errs.As(err))
 		return
 	}
-	writeJSON(w, http.StatusOK, rep)
+	writeJSON(w, http.StatusOK, doctorPayload(&rep))
 }
 
 func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
@@ -224,15 +235,12 @@ func (s *Server) handleReject(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleResolve(w http.ResponseWriter, r *http.Request) {
-	var in struct {
-		UID    string `json:"uid"`
-		Action string `json:"action"`
-	}
+	var in core.ReviewResolveInput
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
 		writeErr(w, http.StatusBadRequest, errs.New(errs.InvalidRequest, err.Error(), nil))
 		return
 	}
-	out, err := s.Svc.ReviewResolve(r.Context(), in.UID, in.Action)
+	out, err := s.Svc.ReviewResolve(r.Context(), in)
 	if err != nil {
 		writeErr(w, statusOf(err), errs.As(err))
 		return

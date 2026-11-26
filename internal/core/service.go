@@ -179,9 +179,19 @@ func fmtMemLine(m store.Memory) string {
 	return fmt.Sprintf("- %s（%s%s · %s）", strings.TrimSpace(m.BodyMD), m.Scope, pin, m.UID)
 }
 
-func fmtExpBlock(e store.Experience, evidenceNote string) string {
+func fmtExpBlock(e store.Experience, evidenceNote string, peers []string) string {
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf("### [%s] %s\n", e.ExpType, e.Title))
+	switch {
+	case e.Trust == "contested":
+		b.WriteString("> **Contested** — not adjudicated. A conflicting entry claims a different fix; " +
+			"compare before applying, and do not treat this as settled.\n")
+		if len(peers) > 0 {
+			b.WriteString("- Conflicting entry: " + strings.Join(peers, ", ") + "\n")
+		}
+	case len(peers) > 0:
+		b.WriteString("- Also see: " + strings.Join(peers, ", ") + " (applies under different conditions)\n")
+	}
 	if e.AppliesWhen != "" {
 		b.WriteString(fmt.Sprintf("- Applies when: %s\n", e.AppliesWhen))
 	}

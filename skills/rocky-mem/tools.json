@@ -1,0 +1,32 @@
+{
+  "contract": 1,
+  "server": "rocky-mem",
+  "tools": [
+    { "name": "mem_context", "required": [] },
+    { "name": "mem_search", "required": ["query"] },
+    { "name": "mem_get", "required": ["uid"] },
+    { "name": "mem_record", "required": ["title", "exp_type", "evidence"] },
+    { "name": "mem_remember", "required": ["title", "body"] },
+    { "name": "mem_feedback", "required": ["uid", "outcome"] }
+  ],
+  "pack_headings": ["## Preferences", "## Applies", "## Do not use", "## Background"],
+  "error_codes": [
+    "ERR_EVIDENCE_REQUIRED",
+    "ERR_FIELD_REQUIRED",
+    "ERR_FIELD_INVALID",
+    "ERR_POLICY_REJECTED",
+    "ERR_SCOPE_FORBIDDEN",
+    "ERR_WRITE_CONFLICT",
+    "ERR_PROJECT_UNRESOLVED",
+    "ERR_FTS_UNAVAILABLE",
+    "ERR_NOT_FOUND",
+    "ERR_NOT_IMPLEMENTED",
+    "ERR_PAYLOAD_TOO_LARGE",
+    "ERR_UNAUTHORIZED",
+    "ERR_FORBIDDEN",
+    "ERR_INVALID_REQUEST",
+    "ERR_UNSUPPORTED_LANG",
+    "ERR_DB",
+    "ERR_SYS_INTERNAL"
+  ]
+}

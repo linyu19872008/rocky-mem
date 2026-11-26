@@ -1,4 +1,4 @@
-.PHONY: build web test lint doctor seed serve backup mcp-smoke verify-tier0 verify-tier1 verify-tier2 verify-tier3
+.PHONY: build web test lint doctor seed serve backup mcp-smoke verify-skill verify-tier0 verify-tier1 verify-tier2 verify-tier3 verify-postgres
 
 BINARY ?= bin/rockymem
 DSN ?= sqlite://$(CURDIR)/.local/rocky-mem.db
@@ -38,13 +38,16 @@ mcp-smoke: build
 	go run ./scripts/mcp_smoke.go
 
 # Tier-0 gate: unit tests + protocol/workflow/audit adoption verify.
+verify-skill:
+	node scripts/check-skill-versions.mjs
+
 verify-tier0: build
 	go test ./internal/adoption/ ./internal/core/ ./internal/project/ ./internal/textnorm/
 	./$(BINARY) adopt-verify --write-verdict --json
 	@echo "OK: tier-0 automated gate passed — complete live checklist in docs/adoption-verdict.md"
 
 # Tier-1 gate: serve/lock/API + maintain/review/idempotency + retrieval eval.
-verify-tier1: build
+verify-tier1: build verify-skill
 	go test ./internal/daemon/ ./internal/api/ ./internal/core/ ./internal/eval/ ./internal/project/ ./internal/textnorm/ ./internal/adoption/
 	./$(BINARY) eval --min-recall 0.8
 	@echo "OK: tier-1 automated gate passed"
@@ -60,3 +63,9 @@ verify-tier3: build
 	go test ./internal/store/conformance/ ./internal/store/sqlite/ ./internal/api/ ./internal/core/ ./internal/extract/ ./internal/eval/ ./internal/termmap/ ./internal/daemon/ ./internal/adoption/
 	./$(BINARY) eval --min-recall 0.8
 	@echo "OK: tier-3 automated gate passed"
+
+# PostgreSQL conformance (requires ROCKYMEM_TEST_PG_DSN and pg_trgm).
+verify-postgres:
+	@test -n "$(ROCKYMEM_TEST_PG_DSN)" || (echo "set ROCKYMEM_TEST_PG_DSN=postgres://…"; exit 1)
+	go test ./internal/store/conformance/ -run Postgres -count=1
+	@echo "OK: postgres conformance passed"

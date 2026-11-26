@@ -15,5 +15,7 @@ func newULID() string {
 func Raw() string        { return "r_" + newULID() }
 func Memory() string     { return "m_" + newULID() }
 func Experience() string { return "e_" + newULID() }
+func Source() string     { return "s_" + newULID() }
+func Chunk() string      { return "c_" + newULID() }
 func Conflict() string   { return "cg_" + newULID() }
 func Request() string    { return "req_" + newULID() }

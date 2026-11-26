@@ -2,7 +2,7 @@
 
 # rocky-mem
 
-**面向编码 agent 的记忆与经验服务。** 默认本地优先，团队场景自托管。
+**面向编码 agent 的记忆与经验服务。** 本地优先，只做单人模式。
 
 记忆是状态，经验是台账。一次调用，两者都能检索。
 
@@ -13,10 +13,10 @@
 ---
 
 > **本译文的基准是 `README.md`；英文版为唯一真相，本页可能滞后。**
-> 当前进度：**Solo 可用 — v0.1.2** — Cookie 鉴权 React UI（知识库 / 记住 / 记录经验 / 投喂 / 审核）、
-> 文件投喂、冲突裁定、备份与术语扩展；验收 `make verify-tier3`
+> 当前进度：**Solo 可用 — v0.2.0** — Cookie 鉴权 React UI（知识库 / 记住 / 记录经验 / 投喂 / 审核）、
+> 文件投喂（默认存为语料）、冲突裁定、备份与术语扩展；验收 `make verify-tier3`
 >（[docs/web.md](docs/web.md)、[docs/ingest.md](docs/ingest.md)）。
-> **PostgreSQL / 团队模式仍属后续。** `design/DESIGN.md` 等为中文；契约与工程文档为英文，
+> **PostgreSQL Open + conformance 已落地；团队鉴权仍属后续。** `design/DESIGN.md` 等为中文；契约与工程文档为英文，
 > 划分见 [design/README.md](design/README.md)。
 
 ## 为什么做这个
@@ -31,17 +31,18 @@
 
 rocky-mem 保留**动作、结果、原因**这个三角，并让它能在 30 毫秒内被 agent 检索到。
 
-## 两种形态，同一个二进制
+## 当前只做单人模式
 
-| | 单人 | 团队 |
+0.x 支持**一台机器、一个人**。这不是测试版的临时限制，而是产品范围（`design/adr/0007-solo-only-scope.md`），所有已交付的东西都是按这个前提做的：一个守护进程、一个 SQLite 文件、一枚 token。
+
+| | 单人（`sqlite://`）—— **支持** | 团队 —— **规划中，未实现** |
 |---|---|---|
-| 存储 | SQLite（单文件） | PostgreSQL |
-| 网络 | 仅 loopback | 可配置 bind |
-| 身份 | 一个隐式本地用户 | 用户、团队、API token |
-| 备份 | `VACUUM INTO` 快照 | 交给数据库服务 |
-| 启动 | `rockymem serve --dsn sqlite://…` | `rockymem serve --dsn postgres://…` |
+| 数据 | 本机一个文件 | — |
+| 身份 | 一个隐式本地用户 | 用户 / 团队 / token 都还没有 |
+| 备份 | `VACUUM INTO` 快照 | — |
+| 启动 | `rockymem serve` | — |
 
-同一个二进制、同一套命令、同一个 MCP 接口，差别只有 DSN。
+`--dsn postgres://…` 现在能用，但它给你的是**用 PostgreSQL 存的单用户库**，不是协作：没有鉴权、没有成员关系、没有并发写验证、没有备份。见 [docs/postgres.md](docs/postgres.md)。
 
 ## 用起来是什么样
 
@@ -84,19 +85,30 @@ agent 在开始工作前调用一次：
 
 **已交付（单人 SQLite）：**
 
-- **MCP 服务** — 6 个工具。多窗口时先 `make serve`，MCP/CLI 用同一 DSN 走守护进程。
+- **MCP 服务** — 6 个工具，**stdio 与 Streamable HTTP 两种传输**（`POST /mcp`，无状态，Bearer 鉴权）。
+  多窗口时先 `make serve`，MCP/CLI 用同一 DSN 走守护进程。
 - **两类知识** — 带稳定版本链的记忆；带可信度、冲突与证伪的经验台账。
 - **运维 CLI** — `review` / `reindex` / `purge` / `export` / `backup`（`make backup`） / `restore` / `eval`。
 - **检索** — FTS5 + 短查询 LIKE + zh→en 术语扩展。
 - **Web SPA** — 检索、**知识库**、**记住** / **记录经验**、审核、条目、**投喂**、概览、设置（一键备份）；en·zh-CN；明暗主题。
-- **投喂** — 两阶段预览/确认；plain + docx/xlsx/PDF 文本层；脱敏差异。
+- **投喂** — 两阶段预览/确认（plain + docx/xlsx/PDF 文本层；脱敏差异）。默认存成**语料**（`source` + `chunk`），勾选「同时生成待审经验」才走 `distill`。
+- **冲突裁定** — 两条对同一症状给了不同解法时，由人裁定：采纳其一 / 条件互补 / 都不成立 / 暂缓 / 复开。裁定只追加、理由必填；未裁定的冲突在上下文包里显式标注。
+- **语料检索** — 片段进 `## Background` 段，有硬上限（默认 2 条 / 每源 1 条），绝不挤掉经验；`mem_get` 读片段（`c_…`）或列文档目录（`s_…`）；`purge --source` 删整篇。
 - **幂等写入** — remember/record 内容去重；memory `rev` CAS（MCP 已暴露 `rev`）。
 
-**规划中：**
+**已交付（PostgreSQL 存储切片）：**
 
-- **PostgreSQL 团队模式** — 同一套 MCP，双方言 conformance。
-- **语料层** — `source` / `chunk`（检索现返回 `ERR_NOT_IMPLEMENTED`）。
-- **WU / git 时间线 / 向量** — 见设计路线图。
+- **Open + migrate + Store** — `--dsn postgres://…` / `postgresql://…`，`pg_trgm`；conformance 用 `ROCKYMEM_TEST_PG_DSN`。**定位是单用户替代后端，不是共享服务。**
+
+**下一步（在范围内）：**
+
+- **`wu` 时间线 / 向量** — 见 `design/DESIGN.md` §16.2。
+- **`bench/`** — 性能数字目前仍是目标，不是测量值。
+
+**0.x 不做：**
+
+- **团队模式** — 共享鉴权、membership、多写者并发、PG 备份。属于未来规划，不在当前实现范围，见 `design/adr/0007-solo-only-scope.md`。
+- **MySQL**、托管 SaaS、多租户隔离。
 
 ## 本仓库快速开始
 
@@ -115,6 +127,21 @@ make verify-tier1
 
 「不搞生产力报表」这条最重要：被用于监控的系统一定会被绕过，而有偏的样本比没有数据更危险。
 
+## 给 agent 的技能包
+
+本仓库同时发布 **`rocky-mem-skill`**（npm）——agent 侧的「行为手册」：何时查台账、
+怎么读上下文包、什么写法会被拒绝。技能包与服务器**同一个 tag 发布**，CI 断言
+`skills/rocky-mem/SKILL.md` 的 `version` 与 `npm/skill/package.json` 一致。
+
+| 宿主 | 安装 |
+|---|---|
+| DeepSeek Harness | 装插件 [`rocky-mem-dsh`](https://github.com/linyu19872008/rocky-mem-dsh)：自动注册技能并在会话启动时注入上下文 |
+| Cursor | `npx rocky-mem-skill install --host cursor` |
+| Claude Code | `npx rocky-mem-skill install --host claude-code` |
+| Codex / 任意 AGENTS.md 宿主 | `npx rocky-mem-skill install --host codex` |
+
+规范源是 `skills/rocky-mem/`；`npm/skill/` 在发布时由 `prepack` 从它生成，不手工编辑。
+
 ## 文档
 
 | | |
@@ -127,6 +154,7 @@ make verify-tier1
 | [design/adr/](design/adr/) | 不可逆决策的记录（中文） |
 | [design/README.md](design/README.md) | 设计文档索引、阅读顺序、维护规则 |
 | [docs/README.md](docs/README.md) | 契约文档索引；哪类文档该放哪里 |
+| [skills/rocky-mem/](skills/rocky-mem/) | agent 技能规范源（双语行为手册 + 各宿主适配） |
 
 ## 参与贡献
 

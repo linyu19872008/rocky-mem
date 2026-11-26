@@ -2,8 +2,7 @@
 
 # rocky-mem
 
-**A memory and experience service for coding agents.** Local-first by default,
-self-hosted for teams.
+**A memory and experience service for coding agents.** Local-first, solo by design.
 
 Memory is state. Experience is a ledger. Both are searchable in one call.
 
@@ -13,11 +12,13 @@ Memory is state. Experience is a ledger. Both are searchable in one call.
 
 ---
 
-> **Status: Solo usable — v0.1.2.** Six MCP tools, `serve` with cookie-auth React
+> **Status: Solo usable — v0.2.0.** Six MCP tools, `serve` with cookie-auth React
 > UI (en/zh-CN, light/dark), Library browse, remember/record forms, file ingest
-> (docx/xlsx/pdf text), conflict resolve, backup/eval/term-map, store conformance.
+> (docx/xlsx/pdf text) storing **corpus** with an optional distill step,
+> conflict resolve, backup/eval/term-map, store conformance.
 > Verify with `make verify-tier3`. See [docs/web.md](docs/web.md) and
-> [docs/ingest.md](docs/ingest.md). **PostgreSQL / team mode remain later.**
+> [docs/ingest.md](docs/ingest.md). **PostgreSQL Open + conformance is shipped;
+> team auth remains later.**
 
 ## Why
 
@@ -35,17 +36,22 @@ Existing tools each capture a fragment:
 rocky-mem keeps the triangle — **action, outcome, reason** — and makes it
 retrievable by an agent in under 30 ms.
 
-## Two modes, one binary
+## Solo now, team later
 
-| | Solo | Team |
+0.x supports **one person on one machine**. That is not a temporary limitation of
+the beta — it is the product scope (`design/adr/0007-solo-only-scope.md`), and
+everything shipped is built for it: one daemon, one SQLite file, one token.
+
+| | Solo (`sqlite://`) — **supported** | Team — **planned, not implemented** |
 |---|---|---|
-| Storage | SQLite (one file) | PostgreSQL |
-| Network | loopback only | configurable bind |
-| Identity | one implicit local user | users, teams, API tokens |
-| Backup | `VACUUM INTO` snapshot | your database server |
-| Start it with | `rockymem serve --dsn sqlite://…` | `rockymem serve --dsn postgres://…` |
+| Data | one file on your machine | — |
+| Identity | one implicit local user | users / teams / tokens do not exist yet |
+| Backup | `VACUUM INTO` snapshot | — |
+| Started with | `rockymem serve` | — |
 
-Same binary, same commands, same MCP surface. The DSN is the only difference.
+`--dsn postgres://…` works today, but it buys a **PostgreSQL-backed single-user
+store**, not collaboration: no auth, no membership, no concurrent-writer
+validation, no backup. See [docs/postgres.md](docs/postgres.md).
 
 ## What it looks like
 
@@ -98,7 +104,8 @@ they fail from applying it outside its conditions.
 
 **Shipped (SQLite solo):**
 
-- **MCP server** — six tools. Prefer `make serve` first; MCP/CLI reuse the daemon
+- **MCP server** — six tools over **stdio and Streamable HTTP** (`POST /mcp`,
+  stateless, Bearer auth). Prefer `make serve` first; MCP/CLI reuse the daemon
   via discovery files next to the DB (same `--dsn`).
 - **Two knowledge types** — versioned memory with stable lineages; an experience
   ledger with trust states, conflict detection and falsification.
@@ -106,14 +113,33 @@ they fail from applying it outside its conditions.
 - **Retrieval** — FTS5 trigram + short-query LIKE + zh→en term-map expansion.
 - **Web SPA** — search, **library**, **remember** / **record** forms, review, entry,
   **ingest**, overview, settings (one-click backup); en·zh-CN; light/dark (`make web`).
-- **Ingest** — two-phase preview/confirm; plain + docx/xlsx/PDF text-layer; redaction spans.
+- **Ingest** — two-phase preview/confirm (plain + docx/xlsx/PDF text-layer, redaction
+  spans). Stores a document as **corpus** (`source` + `chunk`) by default; `distill`
+  is an opt-in checkbox that also proposes one experience.
+- **Conflict adjudication** — when two entries claim different fixes for the same
+  symptom, a human rules: adopt / split by conditions / reject both / defer /
+  reopen. Rulings are append-only with a required reason; unresolved conflicts are
+  flagged in every context pack.
+- **Corpus retrieval** — ingested passages appear in a capped `## Background`
+  section, never displacing lessons; `mem_get` reads a passage (`c_…`) or lists a
+  document (`s_…`); `purge --source` removes a document and its chunks.
 - **Idempotent writes** — remember/record content dedupe; memory `rev` CAS (MCP exposes `rev`).
 
-**Planned:**
+**Shipped (PostgreSQL store slice):**
 
-- **PostgreSQL team mode** — same MCP surface; conformance suite on both backends.
-- **Corpus layer** — `source` / `chunk` kinds (search returns `ERR_NOT_IMPLEMENTED` today).
-- **WU / git timeline / vectors** — see design roadmap.
+- **Open + migrate + Store** — `--dsn postgres://…` / `postgresql://…` with
+  `pg_trgm` search; conformance via `ROCKYMEM_TEST_PG_DSN`.
+
+**Next (in scope):**
+
+- **WU / git timeline, vectors** — see `design/DESIGN.md` §16.2.
+- **`bench/`** — the latency numbers are still targets, not measurements.
+
+**Out of scope for 0.x:**
+
+- **Team mode** — shared auth, membership, multi-writer concurrency, PG backup.
+  Planned, deliberately unscheduled; see `design/adr/0007-solo-only-scope.md`.
+- **MySQL**, hosted SaaS, multi-tenant isolation.
 
 ## Architecture at a glance
 
@@ -155,6 +181,24 @@ between untrusted organisations · productivity reporting · translating your no
 
 The productivity one matters most: a store used for surveillance gets routed
 around, and a biased sample is worse than no sample.
+
+## The agent skill
+
+This repository also publishes **`rocky-mem-skill`** (npm): the agent-facing
+playbook for when to consult the ledger, how to read a context pack, and which
+writes get rejected. It ships from the same tag as the server, and CI asserts
+that `skills/rocky-mem/SKILL.md` and `npm/skill/package.json` agree on the
+version — the skill can never describe a contract it does not belong to.
+
+| Host | Install |
+|---|---|
+| DeepSeek Harness | the [`rocky-mem-dsh`](https://github.com/linyu19872008/rocky-mem-dsh) bundle registers the skill and injects context at session start |
+| Cursor | `npx rocky-mem-skill install --host cursor` |
+| Claude Code | `npx rocky-mem-skill install --host claude-code` |
+| Codex / any AGENTS.md host | `npx rocky-mem-skill install --host codex` |
+
+The source of truth is `skills/rocky-mem/`; `npm/skill/` is generated from it by
+`prepack` at publish time and is not edited by hand.
 
 ## Documentation
 

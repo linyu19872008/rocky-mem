@@ -14,6 +14,7 @@ import (
 type ReindexResult struct {
 	MemoryIndexed     int `json:"memory_indexed"`
 	ExperienceIndexed int `json:"experience_indexed"`
+	ChunkIndexed      int `json:"chunk_indexed"`
 	Deleted           int `json:"deleted_before"`
 }
 
@@ -50,7 +51,37 @@ func (s *Service) Reindex(ctx context.Context) (*ReindexResult, error) {
 			}
 			out.ExperienceIndexed++
 		}
-		_ = st.InsertAudit(ctx, "write", "meta", nil, "", fmt.Sprintf("reindex:m=%d:e=%d", out.MemoryIndexed, out.ExperienceIndexed))
+		chunks, err := st.ListAllActiveChunks(ctx)
+		if err != nil {
+			return err
+		}
+		titleBySource := map[int64]string{}
+		if len(chunks) > 0 {
+			seen := map[int64]bool{}
+			var sids []int64
+			for _, c := range chunks {
+				if !seen[c.SourceID] {
+					seen[c.SourceID] = true
+					sids = append(sids, c.SourceID)
+				}
+			}
+			if srcs, err := st.ListSourcesByIDs(ctx, sids); err == nil {
+				for _, src := range srcs {
+					titleBySource[src.ID] = src.Title
+				}
+			}
+		}
+		for _, c := range chunks {
+			if err := st.WriteSearchDoc(ctx, store.SearchDoc{
+				Kind: "chunk", OwnerID: c.ID, Lang: "und",
+				Title: chunkDocTitle(titleBySource[c.SourceID], c.Heading), Body: c.Text,
+			}); err != nil {
+				return err
+			}
+			out.ChunkIndexed++
+		}
+		_ = st.InsertAudit(ctx, "write", "meta", nil, "",
+			fmt.Sprintf("reindex:m=%d:e=%d:c=%d", out.MemoryIndexed, out.ExperienceIndexed, out.ChunkIndexed))
 		return nil
 	})
 	return &out, err
@@ -59,6 +90,7 @@ func (s *Service) Reindex(ctx context.Context) (*ReindexResult, error) {
 // PurgeInput selects what to delete.
 type PurgeInput struct {
 	UID     string `json:"uid,omitempty"`
+	Source  string `json:"source,omitempty"`  // s_… deletes the document and its chunks
 	Before  int64  `json:"before,omitempty"`  // unix seconds; purge rows created before this
 	Project string `json:"project,omitempty"` // project id decimal or empty
 }
@@ -67,17 +99,35 @@ type PurgeInput struct {
 type PurgeResult struct {
 	Memories     int `json:"memories"`
 	Experiences  int `json:"experiences"`
+	Sources      int `json:"sources"`
+	Chunks       int `json:"chunks"`
 	SearchDocs   int `json:"search_docs"`
 	EvidenceRows int `json:"evidence"`
 }
 
 // Purge removes entries by uid, age, or project scope_ref.
 func (s *Service) Purge(ctx context.Context, in PurgeInput) (*PurgeResult, error) {
-	if in.UID == "" && in.Before == 0 && in.Project == "" {
-		return nil, errs.New(errs.FieldRequired, "specify --uid, --before, or --project", nil)
+	if in.UID == "" && in.Source == "" && in.Before == 0 && in.Project == "" {
+		return nil, errs.New(errs.FieldRequired, "specify --uid, --source, --before, or --project", nil)
 	}
 	var out PurgeResult
 	err := s.Store.WithTx(ctx, func(st store.Store) error {
+		if in.Source != "" {
+			src, err := st.GetSourceByUID(ctx, in.Source)
+			if err != nil {
+				return err
+			}
+			if src == nil {
+				return errs.New(errs.NotFound, "source not found", map[string]any{"uid": in.Source})
+			}
+			n, err := st.DeleteSource(ctx, src.ID)
+			if err != nil {
+				return err
+			}
+			out.Sources, out.Chunks, out.SearchDocs = 1, n, n
+			_ = st.InsertAudit(ctx, "purge", "source", &src.ID, src.UID, "purge_source")
+			return nil
+		}
 		res, err := st.Purge(ctx, store.PurgeFilter{
 			UID: in.UID, Before: in.Before, ProjectScopeRef: in.Project,
 		})

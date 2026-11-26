@@ -20,9 +20,9 @@ import (
 func cmdReview() *cobra.Command {
 	root := &cobra.Command{
 		Use:   "review",
-		Short: "List / approve / reject proposed experiences",
+		Short: "List / approve / reject / resolve proposed experiences",
 	}
-	root.AddCommand(cmdReviewList(), cmdReviewApprove(), cmdReviewReject())
+	root.AddCommand(cmdReviewList(), cmdReviewApprove(), cmdReviewReject(), cmdReviewResolve())
 	return root
 }
 
@@ -124,11 +124,53 @@ func cmdReindex() *cobra.Command {
 	}
 }
 
+func cmdReviewResolve() *cobra.Command {
+	var action, note, keep, peer string
+	var keepApplies, keepInvalid, peerApplies, peerInvalid string
+	var days int
+	c := &cobra.Command{
+		Use:   "resolve <uid>",
+		Short: "Adjudicate a conflict group: adopt | split | reject_both | defer | reopen",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			sess, err := openSession()
+			if err != nil {
+				return err
+			}
+			defer sess.Close()
+			out, err := sess.API.ReviewResolve(context.Background(), core.ReviewResolveInput{
+				UID: args[0], Action: action, Note: note,
+				KeepUID: keep, PeerUID: peer,
+				KeepAppliesWhen: keepApplies, KeepInvalidWhen: keepInvalid,
+				PeerAppliesWhen: peerApplies, PeerInvalidWhen: peerInvalid,
+				ReviewAfterDays: days,
+			})
+			if err != nil {
+				return err
+			}
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetIndent("", "  ")
+			return enc.Encode(out)
+		},
+	}
+	c.Flags().StringVar(&action, "action", "", "adopt|split|reject_both|defer|reopen")
+	c.Flags().StringVar(&note, "note", "", "why this ruling (required)")
+	c.Flags().StringVar(&keep, "keep", "", "adopt: uid to keep (default: <uid>)")
+	c.Flags().StringVar(&peer, "peer", "", "split: the other uid (default: the only peer)")
+	c.Flags().StringVar(&keepApplies, "keep-applies-when", "", "split: condition for <uid>")
+	c.Flags().StringVar(&keepInvalid, "keep-invalid-when", "", "split: when <uid> does NOT apply")
+	c.Flags().StringVar(&peerApplies, "peer-applies-when", "", "split: condition for the peer")
+	c.Flags().StringVar(&peerInvalid, "peer-invalid-when", "", "split: when the peer does NOT apply")
+	c.Flags().IntVar(&days, "review-after-days", 0, "defer: revisit after N days")
+	_ = c.MarkFlagRequired("action")
+	return c
+}
+
 func cmdPurge() *cobra.Command {
-	var uid, project, beforeStr string
+	var uid, project, beforeStr, sourceUID string
 	c := &cobra.Command{
 		Use:   "purge",
-		Short: "Delete entries by uid, age, or project scope_ref",
+		Short: "Delete entries by uid, source, age, or project scope_ref",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var before int64
 			if beforeStr != "" {
@@ -152,7 +194,7 @@ func cmdPurge() *cobra.Command {
 			}
 			defer sess.Close()
 			out, err := sess.API.Purge(context.Background(), core.PurgeInput{
-				UID: uid, Before: before, Project: project,
+				UID: uid, Source: sourceUID, Before: before, Project: project,
 			})
 			if err != nil {
 				return err
@@ -163,6 +205,7 @@ func cmdPurge() *cobra.Command {
 		},
 	}
 	c.Flags().StringVar(&uid, "uid", "", "m_… or e_…")
+	c.Flags().StringVar(&sourceUID, "source", "", "s_… document (deletes the document and its chunks)")
 	c.Flags().StringVar(&project, "project", "", "project scope_ref (numeric id)")
 	c.Flags().StringVar(&beforeStr, "before", "", "unix seconds or Nd (e.g. 30d)")
 	return c
@@ -255,9 +298,12 @@ func cmdRestore() *cobra.Command {
 		Short: "Replace the store with a snapshot (serve must be stopped)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_, path, err := config.ParseDSN(flagDSN)
+			driver, path, err := config.ParseDSN(flagDSN)
 			if err != nil {
 				return err
+			}
+			if driver == "postgres" {
+				return fmt.Errorf("restore is SQLite-only; for postgres restore from pg_dump / snapshot")
 			}
 			if base, tok, ok := daemon.ResolveURL(path); ok {
 				_ = base

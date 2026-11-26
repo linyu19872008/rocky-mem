@@ -13,20 +13,17 @@ import (
 	"github.com/rocky-mem/rocky-mem/internal/core"
 	"github.com/rocky-mem/rocky-mem/internal/mcpserver"
 	"github.com/rocky-mem/rocky-mem/internal/store"
-	"github.com/rocky-mem/rocky-mem/internal/store/sqlite"
+	_ "github.com/rocky-mem/rocky-mem/internal/store/postgres"
+	_ "github.com/rocky-mem/rocky-mem/internal/store/sqlite"
 	"github.com/spf13/cobra"
 )
 
 func cmdInit() *cobra.Command {
 	return &cobra.Command{
 		Use:   "init",
-		Short: "Initialise the local SQLite store and print its path",
+		Short: "Initialise the store (sqlite or postgres) and print its path/DSN",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_, path, err := config.ParseDSN(flagDSN)
-			if err != nil {
-				return err
-			}
-			st, err := sqlite.Open(path)
+			st, driver, rest, err := store.OpenDSN(flagDSN)
 			if err != nil {
 				return err
 			}
@@ -35,7 +32,7 @@ func cmdInit() *cobra.Command {
 				return err
 			}
 			home, _ := config.Home()
-			fmt.Printf("initialised sqlite store\n  path: %s\n  home: %s\n", path, home)
+			fmt.Printf("initialised %s store\n  dsn: %s\n  home: %s\n", driver, rest, home)
 			return nil
 		},
 	}

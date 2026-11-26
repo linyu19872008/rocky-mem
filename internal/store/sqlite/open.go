@@ -16,6 +16,12 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+func init() {
+	store.RegisterOpener("sqlite", func(path string) (store.Store, error) {
+		return Open(path)
+	})
+}
+
 // DB implements store.Store for SQLite.
 type DB struct {
 	sql *sql.DB

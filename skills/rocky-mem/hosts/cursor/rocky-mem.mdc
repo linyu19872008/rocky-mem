@@ -1,0 +1,20 @@
+---
+description: rocky-mem — consult the engineering experience ledger before non-trivial work, record reusable lessons after
+globs:
+alwaysApply: false
+---
+
+# rocky-mem
+
+Use rocky-mem when the task is non-trivial: debugging, design, ops changes, or
+anything with a "we tried this before" flavour.
+
+1. `mem_search` with the symptom or error text before coding.
+2. Read `## Preferences` as constraints; check `Applies when` and
+   `Do not apply when` before acting; treat `## Do not use` as hard negatives.
+3. `mem_record` after a reusable lesson — evidence mandatory. `pending_review`
+   is not success.
+4. `mem_feedback` with `outcome=wrong` when reality contradicts an entry.
+
+Full guidance: the `rocky-mem` skill in `skills/rocky-mem/` of the rocky-mem
+repository.

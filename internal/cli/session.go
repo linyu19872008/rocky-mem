@@ -9,7 +9,8 @@ import (
 	"github.com/rocky-mem/rocky-mem/internal/core"
 	"github.com/rocky-mem/rocky-mem/internal/daemon"
 	"github.com/rocky-mem/rocky-mem/internal/store"
-	"github.com/rocky-mem/rocky-mem/internal/store/sqlite"
+	_ "github.com/rocky-mem/rocky-mem/internal/store/postgres"
+	_ "github.com/rocky-mem/rocky-mem/internal/store/sqlite"
 )
 
 type session struct {
@@ -26,37 +27,58 @@ func (s *session) Close() error {
 	return s.close()
 }
 
-// openSession prefers a healthy daemon; otherwise opens SQLite under flock.
+// openSession prefers a healthy daemon; otherwise opens the store locally.
+// SQLite takes a flock; postgres skips flock and uses hashed discovery paths.
 func openSession() (*session, error) {
-	_, path, err := config.ParseDSN(flagDSN)
+	// No explicit DSN: prefer the daemon that is actually running, wherever it
+	// keeps its database. Without this, `rockymem mcp` opens the default store
+	// beside the default DSN while a daemon serves a different one.
+	if flagDSN == "" {
+		if r, ok := daemon.ReadRegistry(); ok {
+			if sess := dialDaemon(r.URL, r.Token); sess != nil {
+				return sess, nil
+			}
+		}
+	}
+	driver, rest, err := config.ParseDSN(flagDSN)
 	if err != nil {
 		return nil, err
 	}
-	if base, tok, ok := daemon.ResolveURL(path); ok {
+	if base, tok, ok := daemon.ResolveURLForDriver(driver, rest); ok {
 		if sess := dialDaemon(base, tok); sess != nil {
 			return sess, nil
 		}
-		// Token may have rotated under a long-lived MCP process; re-read once.
-		if base2, tok2, ok2 := daemon.ResolveURL(path); ok2 && (base2 != base || tok2 != tok) {
+		if base2, tok2, ok2 := daemon.ResolveURLForDriver(driver, rest); ok2 && (base2 != base || tok2 != tok) {
 			if sess := dialDaemon(base2, tok2); sess != nil {
 				return sess, nil
 			}
 		}
 	}
 
-	paths := daemon.PathsForDB(path)
-	lock, err := daemon.Acquire(paths.Lock)
+	paths, err := daemon.PathsForDriver(driver, rest)
 	if err != nil {
-		return nil, fmt.Errorf("%w (or start `rockymem serve` and ensure discovery files are readable)", err)
+		return nil, err
 	}
-	st, err := sqlite.Open(path)
+
+	var unlock func() error
+	if driver == "sqlite" {
+		lock, err := daemon.Acquire(paths.Lock)
+		if err != nil {
+			return nil, fmt.Errorf("%w (or start `rockymem serve` and ensure discovery files are readable)", err)
+		}
+		unlock = lock.Unlock
+	} else {
+		unlock = func() error { return nil }
+	}
+
+	st, _, _, err := store.OpenDSN(flagDSN)
 	if err != nil {
-		_ = lock.Unlock()
+		_ = unlock()
 		return nil, err
 	}
 	if _, err := st.EnsureLocalUser(context.Background()); err != nil {
 		_ = st.Close()
-		_ = lock.Unlock()
+		_ = unlock()
 		return nil, err
 	}
 	svc := core.NewService(st)
@@ -65,7 +87,7 @@ func openSession() (*session, error) {
 		Store: st,
 		close: func() error {
 			err1 := st.Close()
-			err2 := lock.Unlock()
+			err2 := unlock()
 			if err1 != nil {
 				return err1
 			}

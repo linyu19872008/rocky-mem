@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| 状态 | P0 DDL 定稿 |
+| 状态 | 与迁移 `0001`–`0004` 逐对象一致（CI 校验） |
 | 适用 | SQLite（单人 / 小团队）与 PostgreSQL（团队） |
-| 相关 | [ADR-0002](adr/0002-split-memory-and-experience-tables.md)（拆表）、[ADR-0006](adr/0006-two-database-strategy.md)（双库策略） |
+| 相关 | [ADR-0002](adr/0002-split-memory-and-experience-tables.md)（拆表）、[ADR-0006](adr/0006-two-database-strategy.md)（双库策略）、[ADR-0008](adr/0008-corpus-layer.md)（语料层）、[ADR-0009](adr/0009-conflict-adjudication.md)（冲突裁定） |
 
 ---
 
@@ -21,7 +21,7 @@
 | 枚举 | 存英文码，用 `CHECK` 约束。**展示文案永不入库** |
 | 文本归一化 | 一切文本在 hash 与入库前做 `NFC` 归一化 |
 | 保留字 | 用户表叫 `app_user`（`user` 是 PostgreSQL 保留字）；成员角色列叫 `member_role`；`mem_key` 不叫 `key` |
-| `scope_ref` | 只取四种值：`global` → `''`；`team` → `team.id`；`project` → `project.id`（十进制字符串）；`session` → 会话 id。**永不存文件路径** |
+| `scope_ref` | 只取四种值：`global` → `''`；`team` → `team.id`（**预留，当前写入后永远检索不到**）；`project` → `project.id`（十进制字符串）；`session` → 会话 id。**永不存文件路径** |
 
 ### 1.1 为什么内部 `id` 和对外 `uid` 都要有
 
@@ -30,6 +30,15 @@
 ---
 
 ## 2. SQLite
+
+迁移文件（当前 `schema_version = 4`）：
+
+| 文件 | 内容 |
+|---|---|
+| `db/migrations/sqlite/0001_init.sql` | 基础表、索引与视图 |
+| `db/migrations/sqlite/0002_feedback.sql` | `feedback` 表（`mem_feedback` 用的反馈台账） |
+| `db/migrations/sqlite/0003_corpus.sql` | `source` / `chunk` 语料层（见 §2.7） |
+| `db/migrations/sqlite/0004_conflict.sql` | `conflict_resolution` / `link`（见 §2.9） |
 
 连接建立时执行：
 
@@ -100,6 +109,8 @@ CREATE UNIQUE INDEX ux_api_token_hash ON api_token(token_hash);
 ```
 
 单人模式 `init` 时种一行 `app_user(1,'local')`，其余表留空。
+
+> **这四张是「预留未接线」表。** 0.x 只做单人模式（`DESIGN.md` / [ADR-0007](adr/0007-solo-only-scope.md)），代码**不读也不写** `team` / `membership` / `api_token`。保留它们是为了避免日后做破坏性迁移，不代表功能存在。同样地，`setting` 与 `idempotency` 两张表也已建但未接线（locale 存 cookie，幂等靠内容 hash）。看到表就以为能力在，是这套 schema 最容易踩的误读。
 
 ### 2.2 项目（替代本地路径）
 
@@ -269,7 +280,7 @@ CREATE INDEX idx_exp_conflict ON experience(conflict_group) WHERE conflict_group
 
 刻意没有 `body_md`：结构化字段才是上下文包能分段、`invalid_when` 能单独被检索的原因。长篇叙事属于 `source`/`chunk`。
 
-### 2.6 证据、标签、审计、设置、幂等
+### 2.6 证据、标签、审计、设置、幂等、反馈
 
 ```sql
 CREATE TABLE evidence (
@@ -324,13 +335,80 @@ CREATE TABLE idempotency (
   created_at    INTEGER NOT NULL,
   PRIMARY KEY (actor_id, idem_key)
 ) WITHOUT ROWID;
+
+-- 迁移 0002：mem_feedback 的反馈台账
+CREATE TABLE feedback (
+  id         INTEGER PRIMARY KEY,
+  owner_type TEXT    NOT NULL CHECK (owner_type IN ('memory','experience')),
+  owner_id   INTEGER NOT NULL,
+  owner_uid  TEXT    NOT NULL,          -- 冗余：uid 会在 supersede 后变化，留原值便于人读日志
+  outcome    TEXT    NOT NULL CHECK (outcome IN ('helpful','wrong','stale')),
+  note       TEXT,
+  actor_id   INTEGER REFERENCES app_user(id),
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX idx_feedback_owner
+  ON feedback(owner_type, owner_id, outcome, created_at);
 ```
 
 `owner_id` 是多态引用，数据库层面无法建外键。代价由三条承担：唯一写入路径、`purge` 在同一事务里按 `(owner_type, owner_id)` 删除、`doctor` 巡检孤儿。反方向由 `raw_id` 的 `RESTRICT` 保证。
 
 `audit` 记录**读操作**，不只是写。三个用途：合规追溯、`use_count` 的数据源、回答「你凭什么给我这条」。
 
-### 2.7 派生层：检索文档
+`feedback` 记的是**一次判定**而不是当前状态：`outcome=wrong` 会在同一步把经验转 `contested`，但历史反馈全部保留。这样「这条被三个人说过不对」是可查的，而「它现在是什么状态」只看 `experience.trust`。
+
+### 2.7 语料层：`source` / `chunk`（迁移 `0003`）
+
+语料是**背景材料，不是证据**：不写 `raw`，也不建 `evidence`。理由见 [ADR-0008](adr/0008-corpus-layer.md)。
+
+```sql
+CREATE TABLE source (
+  id            INTEGER PRIMARY KEY,
+  uid           TEXT    NOT NULL UNIQUE,          -- s_<ULID>
+  kind          TEXT    NOT NULL CHECK (kind IN ('file','paste')),
+  uri           TEXT    NOT NULL,                 -- 文件名或 "paste"
+  title         TEXT    NOT NULL,
+  format        TEXT    NOT NULL,                 -- plain|docx|xlsx|pdf
+  text_hash     TEXT    NOT NULL,                 -- sha256(NFC(脱敏后全文))，去重键
+  char_count    INTEGER NOT NULL DEFAULT 0,
+  chunk_count   INTEGER NOT NULL DEFAULT 0,
+  lang          TEXT    NOT NULL DEFAULT 'und',
+  sensitivity   INTEGER NOT NULL DEFAULT 2 CHECK (sensitivity BETWEEN 1 AND 3),
+  status        TEXT    NOT NULL DEFAULT 'active'
+                  CHECK (status IN ('active','archived')),
+  superseded_by INTEGER REFERENCES source(id),
+  project_id    INTEGER REFERENCES project(id),
+  actor_id      INTEGER REFERENCES app_user(id),
+  created_at    INTEGER NOT NULL,
+  t_last_used   INTEGER,
+  use_count     INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE UNIQUE INDEX ux_source_text_hash ON source(text_hash);
+CREATE INDEX idx_source_project ON source(project_id, status, created_at);
+
+CREATE TABLE chunk (
+  id          INTEGER PRIMARY KEY,
+  uid         TEXT    NOT NULL UNIQUE,            -- c_<ULID>
+  source_id   INTEGER NOT NULL REFERENCES source(id) ON DELETE CASCADE,
+  ord         INTEGER NOT NULL,
+  heading     TEXT,                               -- 仅 markdown 填
+  text        TEXT    NOT NULL,                   -- 已脱敏的切片，自带副本
+  char_count  INTEGER NOT NULL,
+  sensitivity INTEGER NOT NULL DEFAULT 2 CHECK (sensitivity BETWEEN 1 AND 3)
+);
+
+CREATE UNIQUE INDEX ux_chunk_ord ON chunk(source_id, ord);
+CREATE INDEX idx_chunk_source ON chunk(source_id);
+```
+
+三个要点：
+
+- **`text_hash` 是去重键**，取「脱敏后全文」而非文件字节。同一文档另存一次不会产生第二份；命中既有 hash 时返回 `unchanged`，不写新行。
+- **`chunk.text` 存自己的副本**，不存指向 `raw` 的偏移。SQLite 的 `substr` 对 BLOB 按字节、对 TEXT 按字符，PostgreSQL 按字符——中文下差三倍，算错不报错，只是乱码。
+- **`status='archived'` 是语料的版本机制**。同一 `project_id` + `uri` 重新投喂且 `text_hash` 变化时，旧 `source` 转 `archived`，**并同时删除它全部 chunk 的 `search_doc` 行**（见 §5.4）。
+
+### 2.8 派生层：检索文档
 
 ```sql
 CREATE TABLE search_doc (
@@ -352,7 +430,7 @@ CREATE VIRTUAL TABLE search_doc_fts USING fts5(
 
 刻意**不用 external-content 模式**：外部内容表在更新时必须先按旧值写入 `'delete'` 命令行，容易写错且要求先读旧值。独立 FTS 表可以直接 `DELETE WHERE rowid=?`。代价是文本存两份——这本来就是派生层的正常代价（PostgreSQL 侧的生成列同样会存一份）。
 
-`kind` 预留给 P1 的 `chunk`。
+`kind='chunk'` 自迁移 `0003` 起有写入方：投喂确认时为每个 chunk 写一行，`owner_id` 指向 `chunk.id`，`title` 带源标题（便于「找那份文档」命中全部片段）。`kinds: ["source"]` 仍返回 `501`——文档是容器，只有片段进入索引。
 
 ```sql
 CREATE VIEW v_feed AS
@@ -364,6 +442,47 @@ CREATE VIEW v_feed AS
          trust        AS state, t_created  AS ts
     FROM experience;
 ```
+
+### 2.9 冲突裁定与关联（迁移 `0004`）
+
+冲突检测（`symptom_key` 相同、`fix_hash` 不同）只能提出问题。`contested` 是问题，`conflict_resolution` 是人的回答。理由见 [ADR-0009](adr/0009-conflict-adjudication.md)。
+
+```sql
+CREATE TABLE conflict_resolution (
+  id           INTEGER PRIMARY KEY,
+  group_id     TEXT    NOT NULL,              -- 指向 experience.conflict_group
+  action       TEXT    NOT NULL
+                 CHECK (action IN ('adopt','split','reject_both','defer','reopen')),
+  kept_id      INTEGER REFERENCES experience(id),   -- adopt 的胜者
+  note         TEXT    NOT NULL,              -- 必填：没有理由的裁定就是猜
+  actor_id     INTEGER REFERENCES app_user(id),
+  review_after INTEGER,                       -- defer 用
+  created_at   INTEGER NOT NULL
+);
+CREATE INDEX idx_resolution_group ON conflict_resolution(group_id, created_at);
+
+CREATE TABLE link (
+  id         INTEGER PRIMARY KEY,
+  src_type   TEXT    NOT NULL CHECK (src_type IN ('memory','experience','source','chunk')),
+  src_id     INTEGER NOT NULL,
+  dst_type   TEXT    NOT NULL CHECK (dst_type IN ('memory','experience','source','chunk')),
+  dst_id     INTEGER NOT NULL,
+  relation   TEXT    NOT NULL
+               CHECK (relation IN ('complements','contradicts','merged_from','derived_from','relates')),
+  note       TEXT,
+  created_at INTEGER NOT NULL
+);
+CREATE UNIQUE INDEX ux_link ON link(src_type, src_id, dst_type, dst_id, relation);
+CREATE INDEX idx_link_dst ON link(dst_type, dst_id);
+```
+
+四个要点：
+
+- **`conflict_resolution` 只追加。** 同一组可以裁多次（复开后再裁）；当前结论 = `ORDER BY created_at DESC LIMIT 1`。不要在条目上存「已裁定」字段——裁定是组级事实，挂到条目上会重复且不一致。
+- **`adopt` 的败者写 `falsified`，不是 `archived`。** `archived` 表示「不再流通（重复/过时）」，`falsified` 表示「被证明是错的」。两者都必须删索引。
+- **`split` 要写回条目。** 除了插一行裁定，还要更新两条的 `applies_when` / `invalid_when` 并重写 `search_doc`，否则条件只活在裁定记录里，检索用不上。
+- **`link` 是关系，不是证据。** `split` 写双向 `complements`；`merged_from` / `derived_from` 预留给后续。唯一索引保证同一对同类关系只有一行。
+
 
 ---
 
@@ -383,6 +502,8 @@ PostgreSQL 版由 SQLite 版按下列规则派生。**两套迁移文件都是�
 | `… WITHOUT ROWID` | 删除该子句 |
 
 其余照搬：`TEXT`、`CHECK` 约束、部分唯一索引、`ON DELETE RESTRICT/CASCADE`、`UNION ALL` 视图，两边语法一致。
+
+`0002_feedback` 同样两边各一份：PostgreSQL 版只需把 `INTEGER PRIMARY KEY` 换成 `BIGINT GENERATED ALWAYS AS IDENTITY`、其余 `INTEGER` 换 `BIGINT`。两个方言的迁移编号必须一一对应，否则一致性套件会在 CI 里报错。
 
 ### 3.2 检索层替换
 
@@ -491,15 +612,15 @@ ON CONFLICT (kind, owner_id) DO UPDATE
 
 **这一节是 §5 里最容易漏掉的一段。** 只写不删不会报错，只会让检索返回已经失效的条目——测试里几乎发现不了，上线后才被用户看见。
 
-被索引的集合只有两类行：
+被索引的集合只有三类行：
 
 ```sql
 -- 记忆：只有当前版本进索引，superseded 不进
 SELECT id FROM memory WHERE status = 'active';
 -- 经验：归档的不进索引
 SELECT id FROM experience WHERE trust <> 'archived';
--- 语料（P1）
-SELECT id FROM chunk;
+-- 语料：只有 active 文档的片段进索引
+SELECT c.id FROM chunk c JOIN source s ON s.id = c.source_id WHERE s.status = 'active';
 ```
 
 因此下列事件必须调用 `DeleteSearchDoc(kind, owner_id)`：
@@ -507,15 +628,17 @@ SELECT id FROM chunk;
 | 事件 | 动作 |
 |---|---|
 | 记忆被编辑，旧行转 `superseded` | 删除旧行的 `search_doc` 与 FTS 行 |
-| 记忆或经验被 `archived` / 记忆被 `falsified` | 删除 |
+| 记忆或经验被 `archived` / `falsified` | 删除（裁定为 `falsified` 的也必须删，否则 `doctor` 报漂移） |
 | `purge` | 在同一事务里删除业务行、`evidence`、`tag`、`search_doc` |
-| `chunk` 所属 `source` 被删 | 级联删除（`source_id` 上是 `ON DELETE CASCADE`） |
+| `source` 转 `archived`（同 `uri` 重投喂） | **删除该文档全部 chunk 的 `search_doc`**——否则旧版本会继续参与检索 |
+| `source` 被删 | chunk 级联删除（`source_id` 上是 `ON DELETE CASCADE`），其 `search_doc` 同事务删除 |
 
 对账公式（`doctor` 每次运行都校验）：
 
 ```
 count(search_doc WHERE kind='memory')     == count(memory     WHERE status='active')
 count(search_doc WHERE kind='experience') == count(experience WHERE trust  <> 'archived')
+count(search_doc WHERE kind='chunk')      == count(chunk JOIN source WHERE source.status='active')
 ```
 
 两边不等，说明某条路径绕过了写入/删除函数，或索引损坏。
@@ -574,11 +697,13 @@ UPDATE memory SET superseded_by = :new_id WHERE id = :old_id;
 
 ## 7. 迁移
 
-- `meta.schema_version` 为整数，每次迁移 +1。只进不退。
+- `meta.schema_version` 为整数，每次迁移 +1。只进不退。**当前为 `4`**（`0001_init` → `0002_feedback` → `0003_corpus` → `0004_conflict`）。
 - 迁移在单个事务内按序应用，**应用前自动 `VACUUM INTO` 快照**（SQLite）或提示外部备份（PG）。快照路径打印在输出里。
-- 迁移文件：`db/migrations/sqlite/NNNN_*.sql`、`db/migrations/postgres/NNNN_*.sql`，编号必须一一对应。
+- 迁移文件：`db/migrations/sqlite/NNNN_*.sql`、`db/migrations/postgres/NNNN_*.sql`，编号必须一一对应。已落地的四组：`0001_init`、`0002_feedback`、`0003_corpus`、`0004_conflict`。
 - 不支持降级。需要回退就恢复快照。
 - 跨大版本（0.x → 1.x）提供 `export --format jsonl` + 导入工具作为逃生通道。
+
+`meta` 的已知键：`schema_version`、`fts_mode`（`trigram` 或 `pg_trgm`，由 `doctor` 展示，用来解释当前检索路径）。
 
 ### 7.1 可移植性规则（保持数据库可换）
 

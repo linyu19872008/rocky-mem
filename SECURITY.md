@@ -10,18 +10,24 @@ Expect an acknowledgement within 7 days. A confirmed issue in a released version
 is shipped as a patch release with a GitHub Security Advisory; credit is given
 unless you ask otherwise.
 
-## Deployment modes and what they imply
+## Deployment scope
 
-rocky-mem runs in one of two modes, selected by the DSN. The threat model differs
-enough that they are described separately.
+rocky-mem 0.x has **one supported deployment**: a single user, on one machine,
+with loopback-only networking and one bearer token. The storage backend can be
+SQLite (default) or PostgreSQL; that choice changes where the bytes live, not who
+may reach them.
 
-| | Solo (`sqlite://`) | Team (`postgres://`) |
+| | Solo — **supported** | Team — **not implemented** |
 |---|---|---|
-| Data location | One file on the user's machine | A PostgreSQL instance the operator runs |
-| Network surface | Loopback only | Configurable bind address |
-| Identity | One implicit local user | Tokens, users, teams, memberships |
-| Trust boundary | The OS user account | The server, plus every client holding a token |
-| Operator | The user | Whoever deployed it |
+| Data location | One SQLite file, or one PostgreSQL database you own | — |
+| Network surface | Loopback only | — |
+| Identity | One implicit local user (`app_user(1,'local')`) | users/teams/memberships: tables exist, **no code enforces them** |
+| Trust boundary | The OS user account | — |
+
+**Do not share one instance between people.** There is no authorization layer to
+enforce it: every client holding the token can read and write everything, and the
+concurrent-write path has never been validated. This is a deliberate scope
+decision (`design/adr/0007-solo-only-scope.md`), not an unfinished edge case.
 
 There is no hosted mode and no plan to build one. Multi-tenant isolation is
 explicitly out of scope: do not run one instance for mutually untrusted
@@ -29,19 +35,26 @@ organisations.
 
 ## Threat model
 
-| Threat | Mode | Relevance | Mitigation |
-|---|---|---|---|
-| Another local user reads the store | Solo | High on shared machines | State directory mode 700, database 600, token 600 |
-| Another local process calls the API | Solo | High | Loopback bind + bearer token required on every request |
-| A leaked token is used by someone else | Team | High | Tokens are stored as Argon2id hashes, scoped, expirable, revocable; `last_used_at` is surfaced in the UI |
-| One team reads another team's entries | Team | High | Scope inference only narrows; `project_id` and team membership are validated in the store layer, not just in the handler |
-| A prompt-injected agent writes poisoned entries | Both | High | Experience entries require evidence and default to `proposed`; one `wrong` feedback demotes immediately |
-| A malicious or buggy MCP client floods the store | Both | Medium | Quality gate defaults to `proposed`; per-token write rate limit |
-| Sensitive content persisted by accident | Both | High | Redaction before persist; L4 rejected at ingest; two-phase ingest with a visible diff for file drops |
-| A dropped file contains a private key | Both | High | Redaction rule packs + sensitivity classification; the preview shows replacements before commit |
-| Exported data leaks beyond the intended tier | Both | Medium | `export --level L1` is a whitelist, not a filter |
-| Backups are world-readable | Both | Medium | `VACUUM INTO` targets inherit directory mode; team-mode backups are the operator's responsibility and are documented as such |
-| An administrator reads everything | Team | Inherent | This cannot be prevented technically. It is documented, and the audit log records who read what, including administrator reads |
+Only solo threats apply. Each row below is backed by shipped code — claims that
+could not be backed were removed from this table rather than softened.
+
+| Threat | Relevance | Mitigation |
+|---|---|---|
+| Another local user reads the store | High on shared machines | State directory mode 700, database 600, token 600 |
+| Another local process calls the API | High | Loopback bind + bearer token checked on every request |
+| A leaked token is reused | Medium | One token file with mode 600; rotate with `rockymem serve --rotate-token` and reload MCP clients. The token is stored **as a file, not hashed** — it is a local convenience credential, not a server-side secret |
+| A prompt-injected agent writes poisoned entries | High | Experience entries require evidence and default to `proposed`; one `wrong` feedback demotes to `contested` immediately |
+| A buggy client floods the store | Medium | Quality gate defaults to `proposed`. **There is no rate limiter** |
+| Sensitive content persisted by accident | High | Redaction before persist; L4 refused with `ERR_POLICY_REJECTED`; two-phase ingest with a visible diff |
+| A dropped file contains a private key | High | Rule packs + sensitivity classification; the preview shows replacements before commit |
+| Exported data leaks beyond the intended tier | Medium | `export --level L1` is a whitelist, not a filter |
+| Backups are readable | Medium | `VACUUM INTO` targets inherit the state directory mode |
+| Nobody can tell who read what | Low | Reads are audited (`action='read'`) for `mem_context`, `mem_search`, `mem_get` |
+
+**Not applicable today:** cross-team access, admin-can-read-everything, token
+scopes, revocation across many tokens. All of those are team-mode threats, and
+team mode is not implemented (`design/adr/0007-solo-only-scope.md`). Do not
+assume any of them are mitigated.
 
 ## Deliberate non-goals
 

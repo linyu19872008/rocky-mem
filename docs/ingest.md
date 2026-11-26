@@ -3,8 +3,25 @@
 Pipeline:
 
 ```
-bytes → detect (ext + magic) → extract plain text → chunk → redact preview → confirm
+bytes → detect (ext + magic) → extract plain text → redact → chunk
+      → preview → confirm → source + chunks (+ optional proposed experience)
 ```
+
+Confirm has two modes:
+
+| Mode | What is stored | Default |
+|---|---|---|
+| `corpus` | `source` + its `chunk` rows + retrieval docs. **Background material, not a claim** | ✅ |
+| `distill` | the above, plus one `proposed` experience for review | opt-in |
+
+Corpus is the default because a document is not a lesson. Distillation keeps the
+old behaviour (title from the filename, first line as symptom, body as the fix)
+and is meant for short notes the human actually vouches for.
+
+Re-ingesting the same text is idempotent: the response is `unchanged` and reuses
+the existing source. Re-ingesting the **same filename with different content**
+archives the previous source and removes its chunks from retrieval, so two
+generations never compete.
 
 ## Supported
 
@@ -30,8 +47,20 @@ POST /api/v1/ingest/preview
 { "text": "…", "filename": "paste.txt" }
 
 POST /api/v1/ingest/confirm
-{ "redacted": "…", "filename": "a.docx", "format": "docx", "title": "…" }
+{ "redacted": "…", "filename": "a.docx", "format": "docx", "title": "…",
+  "mode": "corpus" }
 ```
+
+Response (corpus):
+
+```json
+{ "mode": "corpus", "source_uid": "s_…", "source_title": "a",
+  "chunk_count": 7, "archived_previous": 1, "unchanged": false }
+```
+
+`distill` adds `uid` / `status` / `trust` / `review_required` for the proposed
+experience. Read passages back with `mem_get(uid: "c_…")`, and list a document's
+chunks with `mem_get(uid: "s_…")`.
 
 Preview never returns original binary; `original` is **extracted text** only.
 
